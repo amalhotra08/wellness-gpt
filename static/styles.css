@@ -1,0 +1,205 @@
+/* ===== WellnessGPT Light UI ===== */
+
+/* Reset-ish */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #1f2937;                 /* dark gray text */
+  background: #f7fafc;            /* light background */
+}
+
+/* Header */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 18px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: center;
+}
+header h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  background: none;
+  -webkit-text-fill-color: initial;
+  color: #0f172a;                 /* slate-900 */
+}
+
+/* Layout */
+.wrap {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+@media (max-width: 980px) {
+  .wrap { grid-template-columns: 1fr; }
+}
+
+/* Sidebar */
+#sidebar {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+#sidebar h2 {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  color: #111827;                 /* gray-900 */
+}
+#sidebar p {
+  margin: 8px 0;
+  color: #6b7280;                 /* gray-500 */
+  font-size: 14px;
+}
+
+/* Main */
+main {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 70vh;
+}
+main h2 {
+  margin: 4px 0 12px 0;
+  font-size: 18px;
+  color: #111827;
+}
+
+/* Cards / rows */
+.row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+.video-container {
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;            /* very light gray */
+}
+
+/* Buttons */
+button,
+.custom-upload-button {
+  background: #2563eb;            /* blue-600 */
+  color: #ffffff;
+  border: 1px solid #1d4ed8;      /* blue-700 */
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .2s ease;
+}
+button:hover,
+.custom-upload-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+  background: #1d4ed8;
+}
+.audio-button {
+  background: #f3f4f6;            /* gray-100 */
+  color: #374151;                  /* gray-700 */
+  border-color: #e5e7eb;
+}
+.audio-icon { width: 24px; height: 24px; }
+
+/* Chat */
+.chat-container {
+  height: 420px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  margin-top: 10px;
+  scroll-behavior: smooth;
+}
+.chat-container::-webkit-scrollbar { width: 10px; }
+.chat-container::-webkit-scrollbar-thumb {
+  background: #d1d5db; border-radius: 10px; border: 2px solid #f9fafb;
+}
+.message {
+  margin: 10px 0;
+  display: grid;
+  gap: 6px;
+}
+.message .message-content {
+  background: #eef2ff;            /* indigo-50 */
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e0e7ff;      /* indigo-100 */
+  line-height: 1.45;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  color: #1f2937;
+}
+.message.user .message-content {
+  background: #f3f4f6;            /* gray-100 */
+  border-color: #e5e7eb;
+  color: #111827;
+}
+.message .message-timestamp {
+  font-size: 12px;
+  color: #6b7280;                  /* gray-500 */
+}
+
+/* Composer */
+#message-form { margin-top: 10px; }
+.user-input {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.user-input input[type="text"] {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;      /* gray-300 */
+  background: #ffffff;
+  color: #111827;
+  font-size: 15px;
+}
+.user-input input[type="text"]::placeholder { color: #9ca3af; }
+
+/* Uploaders */
+.uploader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#avatar-image {
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+}
+
+/* Misc */
+.divider { height: 1px; background: #e5e7eb; border: 0; margin: 16px 0; }
+footer {
+  text-align: center;
+  color: #6b7280;
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 20px;
+}
+
+/* Make the video neatly responsive on small screens */
+@media (max-width: 480px) {
+  #avatarVideo { width: 100% !important; height: auto !important; }
+}

@@ -4,7 +4,8 @@ from src.utils.sessions import get_session, new_session
 import os, json
 
 bp = Blueprint('chat', __name__)
-BROKER = LlmBroker(model="gpt-4o-mini")
+# default model set to Llama instant variant; can be overridden with GROQ_MODEL env var
+BROKER = LlmBroker(model="llama-3.1-8b-instant")
 
 def sse(event, data): return f"event: {event}\ndata: {data}\n\n"
 

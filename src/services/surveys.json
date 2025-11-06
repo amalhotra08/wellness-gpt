@@ -1,0 +1,78 @@
+{
+  "surveys": [
+    {
+      "id": "psq_stress_v1",
+      "title": "Perceived Stress (PSQ-inspired)",
+      "description": "A short stress reflection to understand perceived pressure this week.",
+      "goal_tag": "reduce_stress",
+      "completion_criteria": 6,
+      "questions": [
+        {
+          "question_id": "psq_q1",
+          "base_text": "In the last week, how often did you feel nervous or stressed?",
+          "natural_variants": [
+            "This week — have you found yourself feeling nervous or stressed?",
+            "Would you say you often felt stressed over the past seven days?",
+            "Has stress been a regular part of your week recently?"
+          ],
+          "expected_type": "frequency",
+          "response_options": ["Never", "Rarely", "Sometimes", "Often", "Always"],
+          "context_trigger": ["stressed", "pressure", "overwhelmed"]
+        },
+        {
+          "question_id": "psq_q2",
+          "base_text": "How often did you feel you were unable to control important things in your life?",
+          "natural_variants": ["Did you feel out of control about important things recently?","How much did you feel unable to manage key parts of your life this week?"],
+          "expected_type": "frequency",
+          "response_options": ["Never", "Rarely", "Sometimes", "Often", "Always"],
+          "context_trigger": ["control", "manage", "unable"]
+        },
+        {
+          "question_id": "psq_q3",
+          "base_text": "How often did you feel difficulties were piling up so high that you could not overcome them?",
+          "natural_variants": ["Have things felt like they were piling up beyond what you can handle?","Did you feel overwhelmed by tasks or problems this week?"],
+          "expected_type": "frequency",
+          "response_options": ["Never", "Rarely", "Sometimes", "Often", "Always"],
+          "context_trigger": ["overwhelmed", "pile", "too much"]
+        }
+      ],
+      "follow_up": "Consider a brief breathing exercise and a two-minute break when pressure builds."
+    },
+    {
+      "id": "phq9_v1",
+      "title": "PHQ-9 (Depression screening)",
+      "description": "Standard 9-item depression screener (PHQ-9 inspired).",
+      "goal_tag": "mood",
+      "completion_criteria": 9,
+      "questions": [
+        {
+          "question_id": "phq_q1",
+          "base_text": "Over the last 2 weeks, how often have you been bothered by feeling down, depressed, or hopeless?",
+          "natural_variants": ["In the past fortnight, have you felt down or hopeless?"],
+          "expected_type": "scale",
+          "response_options": ["0","1","2","3"],
+          "context_trigger": ["sad", "hopeless", "down"]
+        }
+      ],
+      "follow_up": "If moderate or higher scores appear, consider discussing with a clinician."
+    },
+    {
+      "id": "gad7_v1",
+      "title": "GAD-7 (Anxiety)",
+      "description": "7-item anxiety screener (GAD-7 inspired).",
+      "goal_tag": "anxiety",
+      "completion_criteria": 7,
+      "questions": [
+        {
+          "question_id": "gad_q1",
+          "base_text": "Over the last 2 weeks, how often have you been bothered by feeling nervous, anxious or on edge?",
+          "natural_variants": ["Have you been feeling anxious or on edge recently?"],
+          "expected_type": "scale",
+          "response_options": ["0","1","2","3"],
+          "context_trigger": ["anxious", "nervous", "worry"]
+        }
+      ],
+      "follow_up": "If anxiety is frequent, try a short grounding exercise and monitor symptom patterns."
+    }
+  ]
+}

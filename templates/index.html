@@ -285,6 +285,22 @@
           <div id="expertResults" style="display:none;max-height:260px;overflow:auto;margin-top:10px;"></div>
         </div>
 
+        <div class="card" id="surveyCard">
+          <p style="margin-top:0;font-weight:600;display:flex;align-items:center;gap:6px;">📋 Wellness Goals & Surveys</p>
+          <p style="font-size:13px;color:var(--text-sub);margin:6px 0 12px 0;">Choose a wellness goal and I’ll weave a few reflective questions into our chat.</p>
+          <select id="surveySelect" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-alt);margin-bottom:8px;font-size:13px;">
+            <option value="">Select a goal...</option>
+          </select>
+          <button id="startSurveyBtn" style="width:100%;">Start this goal</button>
+          <div id="surveyStatus" style="margin-top:8px;font-size:12px;color:var(--text-faint);display:none;"></div>
+          <div id="surveyProgressWrap" style="margin-top:8px;display:none;">
+            <div style="background:#e6eefc;border-radius:8px;height:10px;overflow:hidden;">
+              <div id="surveyProgressBar" style="width:0%;height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);"></div>
+            </div>
+            <div id="surveyProgressText" style="font-size:12px;color:var(--text-faint);margin-top:6px;">0/0 answered</div>
+          </div>
+        </div>
+
         <div class="card">
           <p>Upload your avatar image:</p>
           <div class="uploader">
@@ -636,6 +652,114 @@
       }
     });
 
+    /************** Surveys UI: load & start handling **************/
+    const surveySelect = document.getElementById('surveySelect');
+    const startSurveyBtn = document.getElementById('startSurveyBtn');
+    const surveyStatusEl = document.getElementById('surveyStatus');
+
+    async function loadSurveys() {
+      try {
+        const r = await fetch('/api/surveys');
+        if (!r.ok) return;
+        const j = await r.json();
+        const items = (j.surveys || []);
+        // clear existing
+        surveySelect.innerHTML = '<option value="">Select a goal...</option>';
+        items.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.title + (s.goal_tag ? ` — ${s.goal_tag}` : '');
+          surveySelect.appendChild(opt);
+        });
+      } catch (e) {
+        console.warn('Failed to load surveys', e);
+      }
+    }
+
+    async function startSurvey() {
+      const sid = (surveySelect.value || '').trim();
+      if (!sid) {
+        alert('Please choose a survey');
+        return;
+      }
+      startSurveyBtn.disabled = true;
+      try {
+        const r = await fetch('/api/survey/select', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ survey_id: sid })
+        });
+        if (!r.ok) throw new Error('Server error ' + r.status);
+        const j = await r.json();
+        // If backend returned an assistant_message, append it to chat immediately
+        if (j.assistant_message) {
+          appendMessage('assistant', j.assistant_message);
+        }
+  // (UI change) Do not show the survey progress indicator — keep the UI clean and conversational.
+        // Ensure input is enabled so the user can reply immediately
+        input.disabled = false;
+        sendBtn.disabled = false;
+        setTimeout(()=> input.focus(), 50);
+  // Intentionally do NOT start the survey SSE progress indicator to keep UI minimal.
+      } catch (e) {
+        alert('Failed to start survey: ' + (e.message || e));
+      } finally {
+        startSurveyBtn.disabled = false;
+      }
+    }
+
+    if (startSurveyBtn) startSurveyBtn.addEventListener('click', startSurvey);
+    // load on init
+    loadSurveys();
+
+    // ---------- Survey progress via SSE ----------
+    let _sse = null;
+    function startSurveySSE() {
+      if (typeof EventSource === 'undefined') return; // not supported
+      if (_sse) return;
+      _sse = new EventSource('/api/survey/stream');
+          _sse.addEventListener('progress', (ev) => {
+        try {
+          const payload = JSON.parse(ev.data || '{}');
+          const answered = payload.answered || 0;
+          const total = payload.total || 0;
+          const complete = payload.complete || false;
+          // Progress indicator is hidden by UI preference; do not change display state.
+          // Ensure chat input remains enabled while survey runs so user can stay conversational
+          input.disabled = false;
+          sendBtn.disabled = false;
+          if (total > 0) {
+            const pct = Math.round((answered / total) * 100);
+            document.getElementById('surveyProgressBar').style.width = pct + '%';
+            document.getElementById('surveyProgressText').textContent = `${answered}/${total} answered`;
+            // Do not update the visible surveyStatusEl text (indicator hidden)
+          } else {
+            document.getElementById('surveyProgressBar').style.width = '0%';
+            document.getElementById('surveyProgressText').textContent = `${answered} answered`;
+            // Do not update the visible surveyStatusEl text (indicator hidden)
+          }
+          if (complete) {
+            // Keep survey completion UI hidden; still append a completion summary to chat.
+            const summary = payload.result ? (`Survey complete. ${payload.result.score !== null ? ('Score: ' + payload.result.score + '. ') : ''}${payload.result.interpretation || ''}`) : 'Survey complete. Thank you.';
+            appendMessage('assistant', summary);
+            // close SSE after completion
+            if (_sse) { _sse.close(); _sse = null; }
+            // Re-enable input explicitly after survey finishes
+            input.disabled = false;
+            sendBtn.disabled = false;
+          }
+        } catch (e) {
+          console.warn('Invalid SSE payload', e);
+        }
+      });
+      _sse.onerror = (e) => {
+        // Keep the UI but log; EventSource reconnects automatically
+        console.warn('SSE error', e);
+        // If an SSE error occurs, ensure controls aren't left disabled
+        input.disabled = false;
+        sendBtn.disabled = false;
+      };
+    }
+
     /************** Expert Finder (Phase 1) **************/
     const expertCard = document.getElementById('expertFinderCard');
     const expertCategoryLabel = document.getElementById('expertCategoryLabel');
@@ -801,6 +925,8 @@
         localStorage.setItem('pref-theme', darkNow ? 'dark' : 'light');
       });
     })();
+
+    // Survey UI initialization handled earlier in the file. Removed duplicate startup code to avoid hiding the status indicator.
   </script>
 </body>
 </html>

@@ -15,6 +15,11 @@ from src.services.llm import LlmBroker  # uses your refined SYSTEM_PROMPT etc.
 from src.services.avatar import synth_and_render
 from src.services.expert_finder import detect_expert_intent, search_providers
 import asyncio
+from flask import stream_with_context
+from src.services import survey_events
+import json
+from dotenv import load_dotenv
+load_dotenv()   # loads .env into os.environ
 
 # ---- Flask setup ----
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -105,6 +110,181 @@ def api_chat():
         "history_size": len(BROKER.get_history(sid)),
         "expert_intent": intent,
     })
+
+
+@app.get("/api/surveys")
+def api_list_surveys():
+    """Return available surveys loaded by the broker's SurveyManager."""
+    sid = request.cookies.get("sid") or "default"
+    mgr = getattr(BROKER, "survey_manager", None)
+    if not mgr:
+        return jsonify({"surveys": []})
+    return jsonify({"surveys": mgr.list_surveys()})
+
+
+@app.post("/api/survey/select")
+def api_select_survey():
+    j = request.get_json(silent=True) or {}
+    survey_id = (j.get("survey_id") or "").strip()
+    sid = request.cookies.get("sid") or "default"
+    mgr = getattr(BROKER, "survey_manager", None)
+    if not mgr:
+        return jsonify({"ok": False, "error": "surveys unavailable"}), 500
+    if not survey_id:
+        return jsonify({"ok": False, "error": "survey_id missing"}), 400
+    ok = mgr.start_survey(sid, survey_id)
+    resp_data = {"ok": ok, "survey_id": survey_id}
+    # If started successfully, generate an assistant starter message + first question and return it
+    # Send a brief, natural starter message so the UI shows the survey has begun.
+    # We intentionally do NOT send the first survey question verbatim here; the
+    # LLM is given the full survey questions as passive context and will ask the
+    # questions naturally during the conversation. This keeps the tone conversational
+    # while giving an immediate cue to the user that the survey started.
+    if ok:
+        try:
+            survey = mgr.surveys.get(survey_id, {})
+            title = survey.get('title') or 'short survey'
+            # Get the first question so the UI and user have an explicit starting point.
+            first = mgr.get_next_question(sid, context="")
+            if first:
+                # set waiting marker and add assistant message (starter + question)
+                st = mgr.get_state(sid)
+                st["waiting_for"] = first.get("question_id")
+                st["last_question_text"] = first.get("text")
+                starter = f"Okay — I've started the {title}. I'll ask a few quick, conversational questions. There are no right or wrong answers. {first.get('text') }"
+                BROKER.add_assistant(sid, starter)
+                resp_data.update({
+                    "assistant_message": starter,
+                    "first_question": first.get("text"),
+                    "waiting_for": first.get("question_id"),
+                })
+            else:
+                starter = f"Okay — I've started the {title}. I'll ask a few quick, conversational questions. There are no right or wrong answers."
+                BROKER.add_assistant(sid, starter)
+                resp_data.update({"assistant_message": starter})
+        except Exception:
+            pass
+    return jsonify(resp_data)
+
+
+@app.get("/api/survey/status")
+def api_survey_status():
+    sid = request.cookies.get("sid") or "default"
+    mgr = getattr(BROKER, "survey_manager", None)
+    if not mgr:
+        return jsonify({"ok": False, "error": "surveys unavailable"}), 500
+    st = mgr.get_state(sid) or {}
+    # derive progress
+    survey_id = st.get("survey_id")
+    survey = mgr.surveys.get(survey_id) if survey_id else None
+    total_q = 0
+    if survey:
+        total_q = len(survey.get("questions", []))
+    answered = len(st.get("responses", {}))
+    pending = len(st.get("pending", []))
+    complete = st.get("status") == "complete"
+    resp = {
+        "ok": True,
+        "survey_id": survey_id,
+        "complete": complete,
+        "answered": answered,
+        "pending": pending,
+        "total": total_q,
+        "state": st,
+    }
+    if complete:
+        try:
+            resp["result"] = mgr.compute_score(sid)
+        except Exception:
+            resp["result"] = None
+    return jsonify(resp)
+
+
+@app.get("/api/survey/responses")
+def api_survey_responses():
+    sid = request.cookies.get("sid") or "default"
+    mgr = getattr(BROKER, "survey_manager", None)
+    if not mgr:
+        return jsonify({"ok": False, "error": "surveys unavailable"}), 500
+    st = mgr.get_state(sid) or {}
+    return jsonify({"ok": True, "responses": st.get("responses", {}), "state": st})
+
+
+@app.get("/api/survey/download")
+def api_survey_download():
+    sid = request.cookies.get("sid") or "default"
+    mgr = getattr(BROKER, "survey_manager", None)
+    if not mgr:
+        return jsonify({"ok": False, "error": "surveys unavailable"}), 500
+    st = mgr.get_state(sid) or {}
+    record = {
+        "session_id": sid,
+        "survey_id": st.get("survey_id"),
+        "responses": st.get("responses", {}),
+        "state": st,
+    }
+    payload = json.dumps(record, ensure_ascii=False, indent=2)
+    resp = make_response(payload)
+    resp.headers["Content-Type"] = "application/json"
+    resp.headers["Content-Disposition"] = f"attachment; filename=survey_{sid}.json"
+    return resp
+
+
+@app.get('/api/survey/stream')
+def api_survey_stream():
+    """Server-Sent Events stream for survey progress for the current session (cookie 'sid')."""
+    sid = request.cookies.get('sid') or 'default'
+    mgr = getattr(BROKER, 'survey_manager', None)
+    if not mgr:
+        return jsonify({'error': 'surveys unavailable'}), 500
+
+    q = survey_events.get_queue(sid)
+
+    def gen():
+        # send initial snapshot
+        try:
+            st = mgr.get_state(sid) or {}
+            total = 0
+            survey_id = st.get('survey_id')
+            if survey_id:
+                survey = mgr.surveys.get(survey_id) or {}
+                total = len(survey.get('questions', []))
+            init = {'type': 'progress', 'answered': len(st.get('responses', {})), 'total': total, 'complete': st.get('status') == 'complete', 'state': st}
+            yield f"event: progress\ndata: {json.dumps(init)}\n\n"
+        except Exception:
+            pass
+
+        while True:
+            try:
+                item = q.get(timeout=30)
+                try:
+                    yield f"event: progress\ndata: {json.dumps(item)}\n\n"
+                except Exception:
+                    continue
+            except Exception:
+                # keepalive comment
+                yield ": keepalive\n\n"
+
+    return Response(stream_with_context(gen()), mimetype='text/event-stream')
+
+
+# Debug helper (temporary) -- returns broker introspection
+@app.get('/_debug_broker')
+def _debug_broker():
+    try:
+        import inspect
+        info = {
+            'type': str(type(BROKER)),
+            'has_history_size': hasattr(BROKER, 'history_size'),
+            'methods': [n for n in dir(BROKER) if not n.startswith('_')],
+        }
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    resp = {"state": st}
+    if mgr.is_complete(sid):
+        resp["result"] = mgr.compute_score(sid)
+    return jsonify(resp)
 
 
 # ---- JSON chat (SSE streaming) ----

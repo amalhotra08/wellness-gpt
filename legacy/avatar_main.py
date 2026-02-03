@@ -924,7 +924,7 @@ def _build_concat_reencode(visemes: List[str], silence_ranges: List[Tuple[int,in
         return False
 
 
-async def create_talking_head(text, audio_output_path, final_output_path, base_clip_path: Optional[str] = None, fast: bool | None = None):
+async def create_talking_head(text, audio_output_path, final_output_path, base_clip_path: Optional[str] = None, fast: Optional[bool] = None):
     """
     Create a talking head video from text with audio.
 

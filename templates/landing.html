@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>WellnessGPT - Your AI Health Companion</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#fafafa; --text:#1a1a1a; --accent:#2563eb; --accent-hover:#1d4ed8; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+    header { display:flex; justify-content:space-between; align-items:center; padding:20px 40px; border-bottom:1px solid #e5e5e5; background:rgba(255,255,255,0.8); backdrop-filter:blur(10px); position:sticky; top:0; z-index:10; }
+    header h1 { margin:0; font-size:24px; font-weight:700; color:var(--accent); }
+    nav a { text-decoration:none; color:var(--text); font-weight:500; margin-left:24px; transition:color .2s; }
+    nav a:hover { color:var(--accent); }
+    nav a.btn { background:var(--accent); color:#fff; padding:10px 20px; border-radius:6px; margin-left:24px; }
+    nav a.btn:hover { background:var(--accent-hover); }
+    .hero { text-align:center; padding:100px 20px; max-width:800px; margin:0 auto; }
+    .hero h2 { font-size:48px; font-weight:800; margin:0 0 24px 0; letter-spacing:-1px; }
+    .hero p { font-size:18px; color:#666; margin-bottom:40px; }
+    .features { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:40px; padding:80px 40px; max-width:1200px; margin:0 auto; }
+    .feature { background:#fff; padding:30px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); transition:transform .3s; }
+    .feature:hover { transform:translateY(-5px); }
+    .feature h3 { color:var(--accent); margin-top:0; }
+    footer { text-align:center; padding:40px; color:#999; font-size:14px; border-top:1px solid #e5e5e5; margin-top:40px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WellnessGPT</h1>
+    <nav>
+      <a href="/login">Log In</a>
+      <a href="/register" class="btn">Get Started</a>
+    </nav>
+  </header>
+  
+  <section class="hero">
+    <h2>Your Personal AI Health Companion.</h2>
+    <p>Experience personalized wellness coaching, genomic insights, and clinical reasoning—all in one intelligent interface.</p>
+    <div style="display:flex; justify-content:center; gap:16px;">
+        <a href="/register" style="background:var(--accent); color:#fff; padding:14px 28px; border-radius:6px; text-decoration:none; font-weight:600;">Start Your Journey</a>
+        <a href="/login" style="background:#fff; color:var(--text); border:1px solid #ccc; padding:14px 28px; border-radius:6px; text-decoration:none; font-weight:600;">Log In</a>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+        <h3>🧬 Genomic Insights</h3>
+        <p>Upload your genomic data to get personalized health recommendations tailored to your DNA.</p>
+    </div>
+    <div class="feature">
+        <h3>🩺 Clinical Reasoning</h3>
+        <p>Advanced symptom analysis and clinical guidance to help you make informed health decisions.</p>
+    </div>
+    <div class="feature">
+        <h3>🧠 Emotional Support</h3>
+        <p>A supportive companion that listens, understands, and provides emotional balance.</p>
+    </div>
+  </section>
+
+  <footer>
+    &copy; 2025 WellnessGPT. All rights reserved.
+  </footer>
+</body>
+</html>

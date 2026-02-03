@@ -4,6 +4,11 @@ import re
 import traceback
 import json
 from typing import Dict, List, Generator, Optional
+from src.models import db, Message, Conversation
+from sqlalchemy import desc
+import logging
+
+logger = logging.getLogger(__name__)
 
 # small helper
 def _now():
@@ -58,6 +63,11 @@ SYSTEM_PROMPT = """
 
     Your role is to integrate each output into one seamless, supportive reply.
 
+    CRITICAL SAFETY & REFUSAL INSTRUCTIONS:
+    1. MEDICAL DIAGNOSIS REFUSAL: You are an AI, NOT a doctor. You CANNOT provide formal medical diagnoses or prescribe medication. If asked, you must explicitly state this limitation and guide the user to consult a healthcare professional.
+    2. CRISIS: If the user expresses intent to harm themselves or others, you MUST provide immediate crisis resources (988 in US) and decline to engage in further conversation about the method.
+    3. DISCLAIMER: Always remind the user that your advice is for informational and wellness purposes only.
+
     ---
 """
 
@@ -96,8 +106,7 @@ class LlmBroker:
                 self.provider = "Groq"
             except Exception as e:
                 print(f"[llm] Failed to init GroqClient: {e}")
-                if os.getenv("AVATAR_DEBUG") == "1":
-                    traceback.print_exc()
+                logger.error(f"Failed to init GroqClient: {e}", exc_info=True)
                 self.client = None
                 self.provider = "dev"
         else:
@@ -107,7 +116,7 @@ class LlmBroker:
         # Diagnostic summary (mask keys)
         try:
             groq_present = bool(os.getenv("GROQ_API_KEY"))
-            print(f"[llm] provider={self.provider} GROQ_KEY={'set' if groq_present else 'unset'} GroqClientImported={groq_imported}")
+            logger.info(f"provider={self.provider} GROQ_KEY={'set' if groq_present else 'unset'} GroqClientImported={groq_imported}")
         except Exception:
             pass
         # Log chosen provider for debugging
@@ -120,8 +129,8 @@ class LlmBroker:
         self.system_prompt = system_prompt
         self.default_temperature = default_temperature
 
-        # session_id -> list[{"role": "user"|"assistant", "content": str, "time": str}]
-        self.histories: Dict[str, List[Dict]] = {}
+        # REMOVED: self.histories (in-memory)
+        # We now access DB directly via helper methods
 
         self.always_cite = True          # <— force citations for EVERY reply (testing)
         self.citation_verify_min_score = 0  # <— looser filter during testing
@@ -135,6 +144,22 @@ class LlmBroker:
             self.survey_manager = SurveyManager()
         except Exception:
             self.survey_manager = None
+
+    def _check_crisis(self, text: str) -> Optional[str]:
+        """Check for self-harm/crisis keywords."""
+        if not text: return None
+        low = text.lower()
+        patterns = [
+            r"kill myself", r"suicide", r"hurt myself", r"want to die", r"end my life"
+        ]
+        if any(re.search(p, low) for p in patterns):
+            return (
+                "I'm very concerned to hear you're feeling this way, but I cannot provide the help you need right now. "
+                "Please reach out to a crisis counselor immediately. \n\n"
+                "In the US, you can call or text 988 (Suicide & Crisis Lifeline) any time.\n"
+                "If you are in immediate danger, please call 911 or go to the nearest emergency room."
+            )
+        return None
 
     def _compact_query(self, *texts, max_terms=12):
         bag, seen = [], set()
@@ -184,34 +209,11 @@ class LlmBroker:
         except Exception:
             return cleaned
 
-    # ---------- memory condensation ----------
+    # ---------- memory condensation by DB not implemented yet for simplicity (can add later) ----------
     def maybe_condense_history(self, session_id: str, force: bool = False) -> bool:
-        """
-        If history is long, condense older portion into a single summary message to keep context lean.
-        Returns True if condensation performed.
-        """
-        hist = self.get_history(session_id)
-        length = len(hist)
-        if not force:
-            if length < self.memory_condense_threshold:
-                return False
-            # Avoid re-condensing too often
-            last_len = self._last_condense_len.get(session_id, 0)
-            if length - last_len < 6:  # need at least 6 new turns before another condense
-                return False
-        # Identify portion to condense (exclude existing memory summary markers & keep tail)
-        tail = hist[-self.memory_keep_tail:]
-        head = hist[:-self.memory_keep_tail]
-        # If head already a single memory summary skip
-        if len(head) <= 1 and head and head[0]["content"].startswith("[Memory Summary]") and not force:
-            return False
-        summary_text = self._generate_condensed_summary(head, session_id)
-        # Rebuild history: memory summary + tail
-        new_hist = [{"role": "assistant", "content": summary_text, "time": _now()}]
-        new_hist.extend(tail)
-        self.histories[session_id] = new_hist
-        self._last_condense_len[session_id] = len(new_hist)
-        return True
+        # For now, skip condensation to simplify the DB transition. 
+        # You can re-enable by fetching messages, summarizing, and replacing them in DB if needed.
+        return False
 
     def _generate_condensed_summary(self, messages: List[Dict], session_id: str) -> str:
         """Use model (if available) or heuristic to compress earlier turns."""
@@ -272,6 +274,19 @@ class LlmBroker:
         if getattr(self, "always_cite", False): return True
         if force: return True
         return len(reply_text) >= 120
+
+    def session_summary(self, session_id: str) -> str:
+        # Used by the download summary feature
+        msgs = self.get_history(session_id)
+        if not msgs:
+            return "No history available."
+        
+        lines = [f"# Session Summary ({session_id})", f"Date: {_now()}", ""]
+        for m in msgs:
+            role = m["role"].upper()
+            content = m["content"]
+            lines.append(f"**{role}**: {content}\n")
+        return "\n".join(lines)
 
     # ---------- survey helpers ----------
     def _record_survey_response_if_expected(self, session_id: str, user_input: str) -> Optional[str]:
@@ -526,21 +541,42 @@ class LlmBroker:
             pass
         return next_q.get("text")
 
-    # ---------- history ----------
+    # ---------- history (DB) ----------
     def get_history(self, session_id: str) -> List[Dict]:
-        return self.histories.setdefault(session_id, [])
+        """Fetch history from DB for this conversation ID."""
+        # session_id is expected to be the conversation UUID
+        try:
+            msgs = Message.query.filter_by(conversation_id=session_id).order_by(Message.created_at.asc()).all()
+            return [m.to_dict() for m in msgs]
+        except Exception as e:
+            print(f"Error fetching history: {e}")
+            return []
 
     def history_size(self, session_id: str) -> int:
         return len(self.get_history(session_id))
 
     def add_user(self, session_id: str, content: str) -> None:
-        self.get_history(session_id).append({"role": "user", "content": content, "time": _now()})
+        try:
+            msg = Message(conversation_id=session_id, role="user", content=content)
+            db.session.add(msg)
+            db.session.commit()
+        except Exception as e:
+            print(f"Error adding user msg: {e}")
 
     def add_assistant(self, session_id: str, content: str) -> None:
-        self.get_history(session_id).append({"role": "assistant", "content": content, "time": _now()})
+        try:
+            msg = Message(conversation_id=session_id, role="assistant", content=content)
+            db.session.add(msg)
+            db.session.commit()
+        except Exception as e:
+            print(f"Error adding assistant msg: {e}")
 
     def clear(self, session_id: str) -> None:
-        self.histories[session_id] = []
+        try:
+            Message.query.filter_by(conversation_id=session_id).delete()
+            db.session.commit()
+        except Exception as e:
+            print(f"Error clearing history: {e}")
 
     # ---------- message assembly ----------
     def _messages(self, session_id: str) -> List[Dict]:
@@ -573,6 +609,14 @@ class LlmBroker:
         # record it before generating the assistant reply. If a recording occurred,
         # _record_survey_response_if_expected will return an acknowledgement text
         # which we'll return immediately (mirrors the streaming path behavior).
+        
+        # 0. Crisis check
+        crisis_msg = self._check_crisis(user_input)
+        if crisis_msg:
+            self.add_user(session_id, user_input)
+            self.add_assistant(session_id, crisis_msg)
+            return crisis_msg
+
         survey_ack = self._record_survey_response_if_expected(session_id, user_input)
         if survey_ack is not None:
             ack = _ensure_question(survey_ack)
@@ -715,6 +759,14 @@ class LlmBroker:
         force_citations: bool = False,
         intent_context: Optional[str] = None,
     ) -> Generator[str, None, None]:
+        # 0. Crisis check
+        crisis_msg = self._check_crisis(user_input)
+        if crisis_msg:
+            self.add_user(session_id, user_input)
+            self.add_assistant(session_id, crisis_msg)
+            yield crisis_msg
+            return
+
         # If awaiting a survey response, handle recording and short ack path (dev streaming simplified)
         survey_ack = self._record_survey_response_if_expected(session_id, user_input)
         if survey_ack is not None:

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <title>WellnessGPT</title>
@@ -7,22 +8,90 @@
   <style>
     /* Light/Dark theme tokens */
     :root {
-      --bg:#fafafa; --bg-alt:#ffffff; --bg-muted:#f5f7fa; --text:#1a1a1a; --text-sub:#666; --text-faint:#999;
-      --border:#e5e5e5; --accent:#2563eb; --accent-hover:#1d4ed8; --radius:6px; --shadow:0 1px 2px rgba(0,0,0,0.05),0 4px 10px -4px rgba(0,0,0,0.06);
+      --bg: #fafafa;
+      --bg-alt: #ffffff;
+      --bg-muted: #f5f7fa;
+      --text: #1a1a1a;
+      --text-sub: #666;
+      --text-faint: #999;
+      --border: #e5e5e5;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --radius: 6px;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 10px -4px rgba(0, 0, 0, 0.06);
     }
+
     body.dark {
-      --bg:#0f172a; --bg-alt:#1e293b; --bg-muted:#243247; --text:#f1f5f9; --text-sub:#94a3b8; --text-faint:#64748b;
-      --border:#334155; --accent:#3b82f6; --accent-hover:#60a5fa; --shadow:0 2px 6px rgba(0,0,0,0.6);
+      --bg: #0f172a;
+      --bg-alt: #1e293b;
+      --bg-muted: #243247;
+      --text: #f1f5f9;
+      --text-sub: #94a3b8;
+      --text-faint: #64748b;
+      --border: #334155;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
     }
-    * { box-sizing: border-box; }
-    html, body { height:100%; margin:0; }
-    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:var(--text); background:var(--bg); line-height:1.5; zoom:0.85; transition:background .3s,color .3s; }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.5;
+      zoom: 0.85;
+      transition: background .3s, color .3s;
+    }
 
     /* Header */
-  header { background:linear-gradient(90deg,var(--bg-alt),var(--bg-muted)); border-bottom:1px solid var(--border); padding:14px 24px; position:sticky; top:0; z-index:120; display:flex; align-items:center; justify-content:space-between; backdrop-filter:blur(6px); }
-    header h1 { margin:0; font-size:20px; font-weight:600; letter-spacing:-0.25px; }
-    #themeToggle { background:var(--bg-muted); color:var(--text); border:1px solid var(--border); padding:8px 14px; border-radius:var(--radius); font-size:13px; cursor:pointer; display:inline-flex; gap:6px; align-items:center; box-shadow:var(--shadow); }
-    #themeToggle:hover { border-color:var(--accent); color:var(--accent); }
+    header {
+      background: linear-gradient(90deg, var(--bg-alt), var(--bg-muted));
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 120;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(6px);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.25px;
+    }
+
+    #themeToggle {
+      background: var(--bg-muted);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    #themeToggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
 
     /* Layout */
     .wrap {
@@ -32,21 +101,69 @@
       margin: 0 auto;
       min-height: calc(100vh - 65px);
     }
+
     @media (max-width: 1024px) {
-      .wrap { grid-template-columns: 1fr; }
-      body { zoom: 1; }
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+
+      body {
+        zoom: 1;
+      }
     }
 
     /* Sidebar */
-    #sidebar { background:var(--bg-alt); border-right:1px solid var(--border); padding:28px 20px; transition:background .3s; }
-    #sidebar h2 { margin:0 0 20px 0; font-size:14px; font-weight:600; color:var(--text); text-transform:uppercase; letter-spacing:.5px; }
-    #sidebar p { margin:0 0 4px 0; padding:10px 6px; font-size:13px; color:var(--text-sub); border-bottom:1px solid var(--border); cursor:pointer; transition:color .15s,background .15s; border-radius:4px; }
-    #sidebar p:hover { color:var(--accent); background:var(--bg-muted); }
-    #sidebar p:last-child { border-bottom: none; }
-    #sidebar p b { color: #2563eb; font-weight: 600; }
+    #sidebar {
+      background: var(--bg-alt);
+      border-right: 1px solid var(--border);
+      padding: 28px 20px;
+      transition: background .3s;
+    }
+
+    #sidebar h2 {
+      margin: 0 0 20px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    #sidebar p {
+      margin: 0 0 4px 0;
+      padding: 10px 6px;
+      font-size: 13px;
+      color: var(--text-sub);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: color .15s, background .15s;
+      border-radius: 4px;
+    }
+
+    #sidebar p:hover {
+      color: var(--accent);
+      background: var(--bg-muted);
+    }
+
+    #sidebar p:last-child {
+      border-bottom: none;
+    }
+
+    #sidebar p b {
+      color: #2563eb;
+      font-weight: 600;
+    }
 
     /* Main Content: chat left (auto), extras right (fixed 300px) */
-    main { background:var(--bg-alt); padding:28px; overflow-y:auto; display:grid; grid-template-columns:1fr 320px; gap:28px; }
+    main {
+      background: var(--bg-alt);
+      padding: 28px;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 28px;
+    }
+
     main h2 {
       grid-column: 1 / -1;
       margin: 0 0 24px 0;
@@ -62,14 +179,32 @@
       flex-direction: column;
       height: calc(100vh - 200px);
     }
-    .extras-column { display:flex; flex-direction:column; gap:20px; }
+
+    .extras-column {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
 
     /* Cards */
-  .card { background:linear-gradient(180deg,var(--bg-alt) 0%, var(--bg-alt) 60%, var(--bg-muted) 100%); border:1px solid var(--border); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow); transition:background .3s,border-color .3s, transform .2s; }
-  .card:hover { transform:translateY(-2px); }
+    .card {
+      background: linear-gradient(180deg, var(--bg-alt) 0%, var(--bg-alt) 60%, var(--bg-muted) 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+      transition: background .3s, border-color .3s, transform .2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+    }
 
     /* Avatar video: zoomed-out view */
-    .video-container { border:1px solid var(--border); border-radius:6px; background:var(--bg-muted);
+    .video-container {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-muted);
       position: relative;
       overflow: hidden;
       height: 240px;
@@ -77,15 +212,22 @@
       align-items: center;
       justify-content: center;
     }
+
     #avatarVideo {
       width: 100%;
       height: 100%;
-      object-fit: contain;   /* show full frame */
-      transform: scale(0.9); /* zoomed out a bit */
+      object-fit: contain;
+      /* show full frame */
+      transform: scale(0.9);
+      /* zoomed out a bit */
     }
 
     /* Buttons */
-    button, .custom-upload-button { background:var(--accent); color:#fff; border:1px solid var(--accent);
+    button,
+    .custom-upload-button {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
       padding: 10px 16px;
       border-radius: 6px;
       font-size: 13px;
@@ -97,7 +239,13 @@
       align-items: center;
       justify-content: center;
     }
-    button:hover, .custom-upload-button:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
+
+    button:hover,
+    .custom-upload-button:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
     .audio-button {
       position: absolute;
       top: 12px;
@@ -106,24 +254,76 @@
       border: 1px solid #e5e5e5;
       padding: 6px;
       border-radius: 4px;
-      z-index: 20; /* ensure above video */
+      z-index: 20;
+      /* ensure above video */
       pointer-events: auto;
     }
-    .audio-button:hover { background: #fafafa; border-color: #2563eb; }
-    .audio-icon { width: 16px; height: 16px; }
+
+    .audio-button:hover {
+      background: #fafafa;
+      border-color: #2563eb;
+    }
+
+    .audio-icon {
+      width: 16px;
+      height: 16px;
+    }
+
     /* Prevent the video from swallowing clicks meant for overlay controls */
-    .video-container video { pointer-events: none; }
+    .video-container video {
+      pointer-events: none;
+    }
 
     /* Chat */
-    .chat-container { flex:1; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:20px; background:var(--bg-muted); margin-bottom:16px; min-height:0; }
-    .chat-container::-webkit-scrollbar { width: 6px; }
-    .chat-container::-webkit-scrollbar-track { background: transparent; }
-    .chat-container::-webkit-scrollbar-thumb { background: #cccccc; border-radius: 3px; }
-    .chat-container::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+      background: var(--bg-muted);
+      margin-bottom: 16px;
+      min-height: 0;
+    }
+
+    .chat-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .chat-container::-webkit-scrollbar-thumb {
+      background: #cccccc;
+      border-radius: 3px;
+    }
+
+    .chat-container::-webkit-scrollbar-thumb:hover {
+      background: #2563eb;
+    }
 
     /* Messages */
-    .message { margin:20px 0; display:flex; flex-direction:column; gap:6px; animation:fadeIn .35s ease; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:translateY(0);} }
+    .message {
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      animation: fadeIn .35s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     .message .message-content {
       padding: 14px 18px;
       border-radius: 6px;
@@ -133,54 +333,168 @@
       font-size: 13px;
       max-width: 85%;
     }
-    .message.user .message-content { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color:#fff; align-self:flex-end; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
-    .message.assistant .message-content { background:var(--bg-alt); color:var(--text); border:1px solid var(--border); align-self:flex-start; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
-    .message.pending .message-content { opacity: 0.75; }
+
+    .message.user .message-content {
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      color: #fff;
+      align-self: flex-end;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    .message.assistant .message-content {
+      background: var(--bg-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      align-self: flex-start;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .message.pending .message-content {
+      opacity: 0.75;
+    }
+
     .message .message-timestamp {
       font-size: 11px;
       color: #999999;
       align-self: flex-end;
     }
-    .message.assistant .message-timestamp { align-self: flex-start; }
+
+    .message.assistant .message-timestamp {
+      align-self: flex-start;
+    }
 
     /* Forms */
-  .user-input { display:flex; gap:10px; border:1px solid var(--border); border-radius:12px; padding:6px 8px; background:var(--bg-muted); margin-bottom:20px; box-shadow:0 2px 4px rgba(0,0,0,0.04); }
+    .user-input {
+      display: flex;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px 8px;
+      background: var(--bg-muted);
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    }
+
     .user-input:focus-within {
       border-color: #2563eb;
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
-    .user-input input[type="text"] { flex:1; padding:14px 10px; border:none; background:transparent; color:var(--text); font-size:14px; outline:none; }
-    .user-input input[type="text"]::placeholder { color: var(--text-faint); opacity:1; }
-    body.dark .user-input { background:var(--bg-alt); }
-    .user-input button { margin: 4px; }
+
+    .user-input input[type="text"] {
+      flex: 1;
+      padding: 14px 10px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .user-input input[type="text"]::placeholder {
+      color: var(--text-faint);
+      opacity: 1;
+    }
+
+    body.dark .user-input {
+      background: var(--bg-alt);
+    }
+
+    .user-input button {
+      margin: 4px;
+    }
 
     /* Upload Areas */
-    .uploader { display:flex; align-items:center; gap:14px; padding:16px; border:1px dashed var(--border); border-radius:6px; background:var(--bg-muted); transition:border-color .15s,background .15s; }
-    .uploader:hover { border-color:var(--accent); background:var(--bg-alt); }
-    .card > p {
+    .uploader {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      background: var(--bg-muted);
+      transition: border-color .15s, background .15s;
+    }
+
+    .uploader:hover {
+      border-color: var(--accent);
+      background: var(--bg-alt);
+    }
+
+    .card>p {
       margin: 0 0 14px 0;
       color: #666666;
       font-size: 13px;
       font-weight: 500;
     }
-    #avatar-image { border-radius:6px; border:1px solid var(--border); width:56px; height:56px; object-fit:cover; }
-    #confirmation-message { background:var(--accent); color:#fff; padding:10px 14px; border-radius:6px; font-size:13px; text-align:center; }
+
+    #avatar-image {
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+    }
+
+    #confirmation-message {
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: center;
+    }
 
     /* Divider */
-    .divider { height: 1px; background: #e5e5e5; border: none; margin: 20px 0; }
+    .divider {
+      height: 1px;
+      background: #e5e5e5;
+      border: none;
+      margin: 20px 0;
+    }
 
     /* Image Form */
-  #imageForm { background:var(--bg-muted); border:1px solid var(--border); border-radius:10px; padding:20px; display:flex; gap:12px; align-items:center; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
-    #imageForm input[type="text"] { flex:1; padding:14px; border:1px solid var(--border); border-radius:6px; background:var(--bg-alt); color:var(--text); font-size:13px; transition:border-color .15s; }
+    #imageForm {
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    #imageForm input[type="text"] {
+      flex: 1;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-alt);
+      color: var(--text);
+      font-size: 13px;
+      transition: border-color .15s;
+    }
+
     #imageForm input[type="text"]:focus {
       outline: none;
       border-color: #2563eb;
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
-    #imageForm input[type="text"]::placeholder { color: #999999; }
+
+    #imageForm input[type="text"]::placeholder {
+      color: #999999;
+    }
 
     /* Footer */
-    footer { grid-column:1 / -1; text-align:center; color:var(--text-faint); padding:24px; font-size:12px; border-top:1px solid var(--border); background:var(--bg-alt); }
+    footer {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--text-faint);
+      padding: 24px;
+      font-size: 12px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-alt);
+    }
 
     /* Responsive */
     @media (max-width: 1024px) {
@@ -189,20 +503,36 @@
         border-bottom: 1px solid #e5e5e5;
         padding: 20px;
       }
+
       main {
-        grid-template-columns: 1fr; /* stack */
+        grid-template-columns: 1fr;
+        /* stack */
         padding: 20px;
       }
+
       .chat-column,
-      .extras-column { width: 100%; }
-      main h2 { grid-column: 1; }
+      .extras-column {
+        width: 100%;
+      }
+
+      main h2 {
+        grid-column: 1;
+      }
     }
+
     @media (max-width: 768px) {
-      .user-input { flex-direction: column; }
-      #imageForm { flex-direction: column; align-items: stretch; }
+      .user-input {
+        flex-direction: column;
+      }
+
+      #imageForm {
+        flex-direction: column;
+        align-items: stretch;
+      }
     }
   </style>
 </head>
+
 <body>
   <header>
     <button id="themeToggle" aria-pressed="false" title="Toggle dark mode">🌙 Dark</button>
@@ -217,7 +547,13 @@
       <p>Personal History — Your health history</p>
       <p>Family History — Your family's health history</p>
       <p><b>WellnessGPT Chat</b> — AI health assistant</p>
+      <p><b>WellnessGPT Chat</b> — AI health assistant</p>
       <p>Summary — Review your data</p>
+
+      <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+        <a href="/api/auth/logout"
+          style="text-decoration:none; color:#666; font-size:13px; display:block; padding:10px 6px;">Log Out</a>
+      </div>
     </aside>
 
     <main>
@@ -236,7 +572,8 @@
 
         <form id="message-form" autocomplete="off">
           <div class="user-input">
-            <input type="text" id="user_input" name="user_input" autocomplete="off" placeholder="Type your message..." required>
+            <input type="text" id="user_input" name="user_input" autocomplete="off" placeholder="Type your message..."
+              required>
             <button id="sendMessageButton" type="submit">Send</button>
           </div>
         </form>
@@ -254,7 +591,8 @@
         <div class="card" style="position:sticky;top:0;z-index:10;">
           <div class="video-container">
             <!-- Mute / Unmute toggle -->
-            <button id="avatarMuteToggle" class="audio-button" type="button" aria-pressed="true" title="Mute avatar audio" style="display:flex;align-items:center;justify-content:center;">
+            <button id="avatarMuteToggle" class="audio-button" type="button" aria-pressed="true"
+              title="Mute avatar audio" style="display:flex;align-items:center;justify-content:center;">
               <img id="avatarMuteIcon" class="audio-icon" src="static/audio_on.png" alt="Mute" />
             </button>
             <video id="avatarVideo" muted playsinline autoplay>
@@ -269,35 +607,47 @@
         <div class="card" id="expertFinderCard" style="display:none;">
           <p style="margin-top:0;font-weight:600;display:flex;align-items:center;gap:6px;">🔎 Nearby Expert Finder</p>
           <div id="expertFinderStageConsent">
-            <p style="font-size:12px;line-height:1.4;margin:0 0 10px 0;color:var(--text-sub);">I can look up nearby <span id="expertCategoryLabel">specialists</span>. Your precise location is never stored—only a coarse rounding is used temporarily. Proceed?</p>
+            <p style="font-size:12px;line-height:1.4;margin:0 0 10px 0;color:var(--text-sub);">I can look up nearby
+              <span id="expertCategoryLabel">specialists</span>. Your precise location is never stored—only a coarse
+              rounding is used temporarily. Proceed?</p>
             <button id="useLocationBtn" style="width:100%;margin-bottom:6px;">Use My Location</button>
-            <button id="enterZipBtn" type="button" style="width:100%;background:#475569;border-color:#475569;">Enter ZIP / City</button>
-            <div style="margin-top:8px;color:var(--text-faint);font-size:11px;">Informational only. Verify licensing before decisions.</div>
+            <button id="enterZipBtn" type="button" style="width:100%;background:#475569;border-color:#475569;">Enter ZIP
+              / City</button>
+            <div style="margin-top:8px;color:var(--text-faint);font-size:11px;">Informational only. Verify licensing
+              before decisions.</div>
           </div>
           <div id="expertFinderStageZip" style="display:none;">
-            <input id="zipInput" type="text" placeholder="ZIP or City" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--bg-alt);color:var(--text);">
+            <input id="zipInput" type="text" placeholder="ZIP or City"
+              style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--bg-alt);color:var(--text);">
             <div style="display:flex;gap:6px;margin-top:8px;">
               <button id="zipSearchBtn" style="flex:1;">Search</button>
-              <button id="zipCancelBtn" type="button" style="flex:1;background:#64748b;border-color:#64748b;">Cancel</button>
+              <button id="zipCancelBtn" type="button"
+                style="flex:1;background:#64748b;border-color:#64748b;">Cancel</button>
             </div>
           </div>
-          <div id="expertFinderStageLoading" style="display:none;font-size:12px;color:var(--text-sub);">Searching providers…</div>
+          <div id="expertFinderStageLoading" style="display:none;font-size:12px;color:var(--text-sub);">Searching
+            providers…</div>
           <div id="expertResults" style="display:none;max-height:260px;overflow:auto;margin-top:10px;"></div>
         </div>
 
         <div class="card" id="surveyCard">
-          <p style="margin-top:0;font-weight:600;display:flex;align-items:center;gap:6px;">📋 Wellness Goals & Surveys</p>
-          <p style="font-size:13px;color:var(--text-sub);margin:6px 0 12px 0;">Choose a wellness goal and I’ll weave a few reflective questions into our chat.</p>
-          <select id="surveySelect" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-alt);margin-bottom:8px;font-size:13px;">
+          <p style="margin-top:0;font-weight:600;display:flex;align-items:center;gap:6px;">📋 Wellness Goals & Surveys
+          </p>
+          <p style="font-size:13px;color:var(--text-sub);margin:6px 0 12px 0;">Choose a wellness goal and I’ll weave a
+            few reflective questions into our chat.</p>
+          <select id="surveySelect"
+            style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-alt);margin-bottom:8px;font-size:13px;">
             <option value="">Select a goal...</option>
           </select>
           <button id="startSurveyBtn" style="width:100%;">Start this goal</button>
           <div id="surveyStatus" style="margin-top:8px;font-size:12px;color:var(--text-faint);display:none;"></div>
           <div id="surveyProgressWrap" style="margin-top:8px;display:none;">
             <div style="background:#e6eefc;border-radius:8px;height:10px;overflow:hidden;">
-              <div id="surveyProgressBar" style="width:0%;height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);"></div>
+              <div id="surveyProgressBar"
+                style="width:0%;height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);"></div>
             </div>
-            <div id="surveyProgressText" style="font-size:12px;color:var(--text-faint);margin-top:6px;">0/0 answered</div>
+            <div id="surveyProgressText" style="font-size:12px;color:var(--text-faint);margin-top:6px;">0/0 answered
+            </div>
           </div>
         </div>
 
@@ -313,7 +663,8 @@
         <div class="card">
           <p>Upload your genomic info (.tsv):</p>
           <div class="uploader">
-            <label for="genomic-info-upload-input" class="custom-upload-button" id="uploadButton">Upload TSV File</label>
+            <label for="genomic-info-upload-input" class="custom-upload-button" id="uploadButton">Upload TSV
+              File</label>
             <input type="file" id="genomic-info-upload-input" accept=".tsv" style="display:none">
           </div>
           <div id="confirmation-message" style="display:none;margin-top:14px;">
@@ -331,7 +682,8 @@
     </main>
   </div>
 
-  <footer>© 2025 Stephanie Wan, Nick Yan, Rianna Santra, Manasvi Pinnaka, Rajarshi Mandal, Gavin Ye, Ansh Malhotra</footer>
+  <footer>© 2025 Stephanie Wan, Nick Yan, Rianna Santra, Manasvi Pinnaka, Rajarshi Mandal, Gavin Ye, Ansh Malhotra
+  </footer>
 
   <script>
     /************** Chat helpers **************/
@@ -342,7 +694,7 @@
 
     function timestamp() {
       const d = new Date();
-      return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     function appendMessage(role, text, opts = {}) {
@@ -415,8 +767,8 @@
             const vurl = avData.video;
             if (aurl && audioEl) {
               audioEl.src = aurl + (aurl.includes('?') ? '&' : '?') + 't=' + Date.now();
-              try { audioEl.load(); } catch {}
-              await audioEl.play().catch(()=>{});
+              try { audioEl.load(); } catch { }
+              await audioEl.play().catch(() => { });
             }
             if (vurl && avatarVideo) {
               // Replace video source and play from start
@@ -426,9 +778,9 @@
               src.src = vurl + (vurl.includes('?') ? '&' : '?') + 't=' + Date.now();
               src.type = 'video/mp4';
               avatarVideo.appendChild(src);
-              try { avatarVideo.load(); } catch {}
+              try { avatarVideo.load(); } catch { }
               avatarVideo.currentTime = 0;
-              await avatarVideo.play().catch(()=>{});
+              await avatarVideo.play().catch(() => { });
               avatarOk = true;
             }
           } else {
@@ -451,8 +803,8 @@
               const url = ttsData.audio;
               if (url && audioEl) {
                 audioEl.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(); // bust cache
-                try { audioEl.load(); } catch {}
-                await audioEl.play().catch(()=>{});
+                try { audioEl.load(); } catch { }
+                await audioEl.play().catch(() => { });
               }
               if (avatarVideo) {
                 // Force the static talking head to refresh by cache-busting source
@@ -462,10 +814,10 @@
                 src.src = staticSrc + '?t=' + Date.now();
                 src.type = 'video/mp4';
                 avatarVideo.appendChild(src);
-                try { avatarVideo.pause(); } catch {}
-                try { avatarVideo.load(); } catch {}
+                try { avatarVideo.pause(); } catch { }
+                try { avatarVideo.load(); } catch { }
                 avatarVideo.currentTime = 0;
-                avatarVideo.play().catch(()=>{});
+                avatarVideo.play().catch(() => { });
               }
             }
           } catch (e) {
@@ -482,7 +834,7 @@
         sendBtn.disabled = false;
         input.disabled = false;
         input.value = '';
-        setTimeout(()=> input.focus(), 0);
+        setTimeout(() => input.focus(), 0);
         chat.scrollTop = chat.scrollHeight;
       }
     }
@@ -518,7 +870,7 @@
         if (!audioEl.paused) {
           // Keep playing (silent) to stay synced; optional pause: audioEl.pause();
         }
-        if (muteBtn) muteBtn.setAttribute('aria-pressed','false');
+        if (muteBtn) muteBtn.setAttribute('aria-pressed', 'false');
         if (muteBtn) muteBtn.title = 'Unmute avatar audio';
         if (muteIcon) {
           muteIcon.src = 'static/audio_off.png';
@@ -527,11 +879,11 @@
       } else {
         audioEl.muted = false;
         audioEl.volume = 1;
-        if (muteBtn) muteBtn.setAttribute('aria-pressed','true');
+        if (muteBtn) muteBtn.setAttribute('aria-pressed', 'true');
         if (muteBtn) muteBtn.title = 'Mute avatar audio';
         if (muteIcon) {
           muteIcon.src = 'static/audio_on.png';
-            muteIcon.alt = 'Mute';
+          muteIcon.alt = 'Mute';
         }
       }
     }
@@ -578,7 +930,7 @@
       if (saved) avatarImg.src = saved;
     });
 
-  // Ensure the avatar video stays stopped at the end (no loop)
+    // Ensure the avatar video stays stopped at the end (no loop)
     if (avatarVideo) {
       avatarVideo.addEventListener('ended', () => {
         avatarVideo.pause();
@@ -595,10 +947,10 @@
       const fd = new FormData();
       fd.append('genomicFile', file);
       try {
-        const r = await fetch('/api/upload/genomic', { method:'POST', body: fd });
+        const r = await fetch('/api/upload/genomic', { method: 'POST', body: fd });
         if (!r.ok) throw new Error('upload failed');
         document.getElementById('confirmation-message').style.display = 'block';
-        setTimeout(() => document.getElementById('confirmation-message').style.display='none', 3000);
+        setTimeout(() => document.getElementById('confirmation-message').style.display = 'none', 3000);
       } catch (err) {
         alert('Upload failed');
       }
@@ -620,7 +972,7 @@
           const disposition = resp.headers.get('Content-Disposition') || '';
           let filename = 'summary.html';
           const match = disposition.match(/filename=([^;]+)/i);
-          if (match) filename = match[1].replace(/"/g,'');
+          if (match) filename = match[1].replace(/"/g, '');
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -635,7 +987,7 @@
           downloadStatus.textContent = 'Failed: ' + (err.message || 'error');
         } finally {
           downloadBtn.disabled = false;
-          setTimeout(()=>{ downloadStatus.style.display='none'; }, 3000);
+          setTimeout(() => { downloadStatus.style.display = 'none'; }, 3000);
         }
       });
     }
@@ -643,7 +995,7 @@
     /************** Auto-scroll **************/
     window.addEventListener('load', () => {
       if (chat) chat.scrollTop = chat.scrollHeight;
-  // Initialize video state
+      // Initialize video state
       // Try to start the avatar video (muted autoplay is typically allowed)
       if (avatarVideo) {
         avatarVideo.play().catch(() => {
@@ -694,12 +1046,12 @@
         if (j.assistant_message) {
           appendMessage('assistant', j.assistant_message);
         }
-  // (UI change) Do not show the survey progress indicator — keep the UI clean and conversational.
+        // (UI change) Do not show the survey progress indicator — keep the UI clean and conversational.
         // Ensure input is enabled so the user can reply immediately
         input.disabled = false;
         sendBtn.disabled = false;
-        setTimeout(()=> input.focus(), 50);
-  // Intentionally do NOT start the survey SSE progress indicator to keep UI minimal.
+        setTimeout(() => input.focus(), 50);
+        // Intentionally do NOT start the survey SSE progress indicator to keep UI minimal.
       } catch (e) {
         alert('Failed to start survey: ' + (e.message || e));
       } finally {
@@ -717,7 +1069,7 @@
       if (typeof EventSource === 'undefined') return; // not supported
       if (_sse) return;
       _sse = new EventSource('/api/survey/stream');
-          _sse.addEventListener('progress', (ev) => {
+      _sse.addEventListener('progress', (ev) => {
         try {
           const payload = JSON.parse(ev.data || '{}');
           const answered = payload.answered || 0;
@@ -775,7 +1127,7 @@
     let lastExpertIntent = null;
 
     // Allow early chat handler to apply deferred intent
-    window.__applyExpertIntent = function() {
+    window.__applyExpertIntent = function () {
       if (window.__pendingExpertIntent) {
         lastExpertIntent = window.__pendingExpertIntent;
         expertCategoryLabel.textContent = lastExpertIntent.label;
@@ -789,7 +1141,7 @@
     async function detectExpertIntent(text) {
       if (lastExpertIntent) return;
       try {
-        const r = await fetch('/api/expert/intent', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) });
+        const r = await fetch('/api/expert/intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
         if (!r.ok) return;
         const j = await r.json();
         if (j.intent) {
@@ -797,7 +1149,7 @@
           expertCategoryLabel.textContent = j.intent.label;
           expertCard.style.display = 'block';
         }
-      } catch(e){}
+      } catch (e) { }
     }
 
     function renderProviders(payload) {
@@ -813,8 +1165,8 @@
         item.innerHTML = `<div style="font-weight:600;font-size:13px;">${p.name}</div>
           <div style="color:#555;">${p.specialty} • ${p.distance_km} km</div>
           <div style="color:#555;">${p.address}</div>
-          ${p.phone ? `<div>📞 <a href="tel:${p.phone}" style="color:#2563eb;">${p.phone}</a></div>`: ''}
-          ${p.website ? `<div>🌐 <a href="${p.website}" target="_blank" rel="noopener" style="color:#2563eb;">Website</a></div>`: ''}
+          ${p.phone ? `<div>📞 <a href="tel:${p.phone}" style="color:#2563eb;">${p.phone}</a></div>` : ''}
+          ${p.website ? `<div>🌐 <a href="${p.website}" target="_blank" rel="noopener" style="color:#2563eb;">Website</a></div>` : ''}
           <div style="color:#777;margin-top:4px;">${p.npi_match_status === 'verified' ? 'Verified' : 'Unverified'} • ${p.notes || ''}</div>`;
         list.appendChild(item);
       });
@@ -860,16 +1212,16 @@
         }
         navigator.geolocation.getCurrentPosition(pos => {
           const { latitude, longitude } = pos.coords;
-            doSearchWithCoords(latitude, longitude);
-          }, err => {
-            alert('Location denied or unavailable. You can enter a ZIP / city instead.');
-            consentStage.style.display = 'none';
-            zipStage.style.display = 'block';
-          }, {
-            enableHighAccuracy: true,
-            timeout: 6000,
-            maximumAge: 0
-          });
+          doSearchWithCoords(latitude, longitude);
+        }, err => {
+          alert('Location denied or unavailable. You can enter a ZIP / city instead.');
+          consentStage.style.display = 'none';
+          zipStage.style.display = 'block';
+        }, {
+          enableHighAccuracy: true,
+          timeout: 6000,
+          maximumAge: 0
+        });
       });
     }
 
@@ -887,7 +1239,7 @@
     }
     if (zipSearchBtn) {
       zipSearchBtn.addEventListener('click', async () => {
-        const term = (zipInput.value||'').trim();
+        const term = (zipInput.value || '').trim();
         if (!term) return;
         loadingStage.style.display = 'block';
         zipStage.style.display = 'none';
@@ -897,9 +1249,9 @@
           if (!resp.ok) throw new Error('Geo error');
           const arr = await resp.json();
           if (!arr.length) throw new Error('No match');
-            const lat = parseFloat(arr[0].lat);
-            const lon = parseFloat(arr[0].lon);
-            doSearchWithCoords(lat, lon);
+          const lat = parseFloat(arr[0].lat);
+          const lon = parseFloat(arr[0].lon);
+          doSearchWithCoords(lat, lon);
         } catch (e) {
           alert('Could not geocode input');
           loadingStage.style.display = 'none';
@@ -909,17 +1261,17 @@
     }
 
     /************** Dark Mode Toggle **************/
-    (function(){
+    (function () {
       const btn = document.getElementById('themeToggle');
-      if(!btn) return;
-      function apply(mode){
-        if(mode==='dark'){ document.body.classList.add('dark'); btn.setAttribute('aria-pressed','true'); btn.textContent='☀️ Light'; }
-        else { document.body.classList.remove('dark'); btn.setAttribute('aria-pressed','false'); btn.textContent='🌙 Dark'; }
+      if (!btn) return;
+      function apply(mode) {
+        if (mode === 'dark') { document.body.classList.add('dark'); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '☀️ Light'; }
+        else { document.body.classList.remove('dark'); btn.setAttribute('aria-pressed', 'false'); btn.textContent = '🌙 Dark'; }
       }
       const stored = localStorage.getItem('pref-theme');
       const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       apply(stored || (prefers ? 'dark' : 'light'));
-      btn.addEventListener('click', ()=>{
+      btn.addEventListener('click', () => {
         const darkNow = !document.body.classList.contains('dark');
         apply(darkNow ? 'dark' : 'light');
         localStorage.setItem('pref-theme', darkNow ? 'dark' : 'light');
@@ -929,4 +1281,5 @@
     // Survey UI initialization handled earlier in the file. Removed duplicate startup code to avoid hiding the status indicator.
   </script>
 </body>
+
 </html>

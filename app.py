@@ -9,6 +9,8 @@ from flask import (
     jsonify,
     Response,
     make_response,
+    redirect,
+    flash,
 )
 from src.services.llm import LlmBroker  # uses your refined SYSTEM_PROMPT etc.
 # from src.services.email_utils import send_email  # Email no longer used for summary download feature
@@ -19,14 +21,60 @@ from flask import stream_with_context
 from src.services import survey_events
 import json
 from dotenv import load_dotenv
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_migrate import Migrate
+from src.models import db, User, Conversation, Message, Consent
+
 load_dotenv()   # loads .env into os.environ
 
+import logging
 # ---- Flask setup ----
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 app = Flask(__name__, static_folder="static", template_folder="templates")
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+if not app.config['SECRET_KEY']:
+    if os.getenv('FLASK_ENV') == 'production':
+        raise RuntimeError("SECRET_KEY must be set in production")
+    print("WARNING: using dev secret key")
+    app.config['SECRET_KEY'] = 'dev-secret-key-change-in-prod'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///hms_gami.sqlite')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Security: Session cookie hardencng
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Initialize extensions
+db.init_app(app)
+migrate = Migrate(app, db)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'landing'
+
 os.makedirs("uploads", exist_ok=True)
+
+# Create tables within app context
+with app.app_context():
+    db.create_all()
 
 # Single broker instance (swap for per-user if you add auth/DB later)
 BROKER = LlmBroker()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+@app.before_request
+def check_consent():
+    """Block access to app if consent not given."""
+    if request.endpoint in ('static', 'login', 'login_page', 'register', 'register_page', 'landing', 'logout', 'consent', 'api_consent', 'consent_page'):
+        return
+    if current_user.is_authenticated:
+        # Check if user has consented
+        if not current_user.consents:
+            return redirect("/consent")
 
 # ---- Helpers ----
 def _now() -> str:
@@ -48,38 +96,134 @@ def _data_for_render(session_id: str):
 
 def _ensure_session_cookie(resp=None):
     """
-    Ensure the browser has a 'sid' cookie; create and set it if missing.
-    Returns (sid, response_obj).
+    Ensure the browser has a 'sid' cookie corresponding to the user's conversation.
+    Only called for authenticated users (index route).
     """
+    if not current_user.is_authenticated:
+        # Should be covered by @login_required but safe guard
+        return None, resp
+
     sid = request.cookies.get("sid")
-    if sid:
-        return sid, resp
-    sid = uuid.uuid4().hex
-    if resp is None:
-        resp = make_response()  # temporary; caller should overwrite with final render
-    # 1-year cookie; not HttpOnly so JS can read if needed; Lax is fine for same-site
-    resp.set_cookie("sid", sid, max_age=60 * 60 * 24 * 365, httponly=False, samesite="Lax")
+    # Find active conversation for user
+    conv = Conversation.query.filter_by(user_id=current_user.id).order_by(Conversation.updated_at.desc()).first()
+    
+    if not conv:
+        new_id = uuid.uuid4().hex
+        conv = Conversation(id=new_id, user_id=current_user.id, title="New Chat")
+        db.session.add(conv)
+        db.session.commit()
+    
+    if sid != conv.id:
+        # Update cookie to match conversation ID
+        if resp is None:
+            resp = make_response()
+        resp.set_cookie("sid", conv.id, max_age=60 * 60 * 24 * 365, httponly=False, samesite="Lax")
+        return conv.id, resp
+    
     return sid, resp
 
 # ---- Routes ----
+# ---- Routes ----
+
+@app.route("/landing")
+def landing():
+    if current_user.is_authenticated:
+        return redirect("/") # Go to app if logged in
+    return render_template("landing.html")
+
+@app.route("/login", methods=["GET"])
+def login_page():
+    if current_user.is_authenticated:
+        return redirect("/")
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET"])
+def register_page():
+    if current_user.is_authenticated:
+        return redirect("/")
+    return render_template("register.html")
+
+@app.route("/api/auth/register", methods=["POST"])
+def register():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    
+    if not username or not password:
+        flash("Username and password required")
+        return redirect("/register")
+    
+    if User.query.filter_by(username=username).first():
+        flash("Username already exists")
+        return redirect("/register")
+        
+    user = User(username=username, password_hash=generate_password_hash(password))
+    db.session.add(user)
+    db.session.commit()
+    
+    login_user(user)
+    return redirect("/consent")
+
+@app.route("/consent")
+@login_required
+def consent_page():
+    if current_user.consents:
+        return redirect("/")
+    return render_template("consent.html")
+
+@app.post("/api/consent")
+@login_required
+def api_consent():
+    # Record consent
+    c = Consent(user_id=current_user.id, version="1.0", ip_hash=None) # TODO: hash IP if needed
+    db.session.add(c)
+    db.session.commit()
+    return redirect("/")
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    
+    user = User.query.filter_by(username=username).first()
+    if user and check_password_hash(user.password_hash, password):
+        login_user(user)
+        return redirect("/")
+        
+    flash("Invalid credentials")
+    return redirect("/login")
+
+@app.route("/api/auth/logout")
+@login_required
+def logout():
+    logout_user()
+    resp = make_response(redirect("/landing"))
+    resp.delete_cookie("sid")
+    return resp
+
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def index():
     # Keep the same session between requests via cookie
     if request.method == "POST":
-        sid = request.cookies.get("sid") or "default"
+        sid, _ = _ensure_session_cookie() # Just to get correct ID
         text = (request.form.get("user_input") or "").strip()
         if text:
             BROKER.reply_sync(sid, text)
         # re-render with updated messages
-        return render_template("index.html", data=_data_for_render(sid))
+        resp = make_response(render_template("index.html", data=_data_for_render(sid)))
+        _, resp = _ensure_session_cookie(resp) # Ensure cookie set
+        return resp
 
     # GET: make sure we set the cookie if missing, and seed greeting if empty
+    # Render with placeholders first, then cookie logic attaches
     resp = make_response(render_template("index.html", data={"messages": [], "summary": ""}))
     sid, resp = _ensure_session_cookie(resp)
-    if BROKER.history_size(sid) == 0:
-        BROKER.add_assistant(sid, "Hello! How can I assist you today?")
-    # render again with real history
-    resp.set_data(render_template("index.html", data=_data_for_render(sid)))
+    
+    if sid:
+        if BROKER.history_size(sid) == 0:
+            BROKER.add_assistant(sid, "Hello! How can I assist you today?")
+        # render again with real history
+        resp.set_data(render_template("index.html", data=_data_for_render(sid)))
     return resp
 
 # ---- JSON chat (sync) ----

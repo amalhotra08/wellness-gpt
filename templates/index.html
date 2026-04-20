@@ -595,12 +595,13 @@
               title="Mute avatar audio" style="display:flex;align-items:center;justify-content:center;">
               <img id="avatarMuteIcon" class="audio-icon" src="static/audio_on.png" alt="Mute" />
             </button>
-            <video id="avatarVideo" muted playsinline autoplay>
+            <video id="avatarVideo" muted playsinline>
               <source src="static/talking_head.mp4" type="video/mp4">
               Your browser does not support the video tag.
             </video>
           </div>
-          <audio id="audio" preload="none"></audio>
+          <audio id="audio" preload="auto" hidden></audio> <!-- DEBUG -->
+          <!-- <audio id="audio" preload="none"></audio> -->
         </div>
 
         <!-- Expert Finder moved just under avatar -->
@@ -765,26 +766,14 @@
             const avData = await avRes.json();
             const aurl = avData.audio;
             const vurl = avData.video;
-            if (aurl && audioEl) {
-              audioEl.src = aurl + (aurl.includes('?') ? '&' : '?') + 't=' + Date.now();
-              try { audioEl.load(); } catch { }
-              await audioEl.play().catch(() => { });
-            }
-            if (vurl && avatarVideo) {
-              // Replace video source and play from start
-              // Recreate source element for cache-busting
-              while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
-              const src = document.createElement('source');
-              src.src = vurl + (vurl.includes('?') ? '&' : '?') + 't=' + Date.now();
-              src.type = 'video/mp4';
-              avatarVideo.appendChild(src);
-              try { avatarVideo.load(); } catch { }
-              avatarVideo.currentTime = 0;
-              await avatarVideo.play().catch(() => { });
-              avatarOk = true;
+            if (aurl && vurl && avatarVideo) {
+              avatarOk = await playAvatarReply(aurl, vurl);
+            } else if (aurl) {
+              await playReplyAudio(aurl);
             }
           } else {
-            console.warn('Avatar endpoint returned', avRes.status);
+            const errText = await avRes.text();
+            console.warn('Avatar endpoint returned', avRes.status, errText);
           }
         } catch (e) {
           console.warn('Avatar fetch failed', e);
@@ -801,13 +790,10 @@
             if (ttsRes.ok) {
               const ttsData = await ttsRes.json();
               const url = ttsData.audio;
-              if (url && audioEl) {
-                audioEl.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(); // bust cache
-                try { audioEl.load(); } catch { }
-                await audioEl.play().catch(() => { });
+              if (url) {
+                await playReplyAudio(url);
               }
               if (avatarVideo) {
-                // Force the static talking head to refresh by cache-busting source
                 const staticSrc = 'static/talking_head.mp4';
                 while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
                 const src = document.createElement('source');
@@ -819,6 +805,9 @@
                 avatarVideo.currentTime = 0;
                 avatarVideo.play().catch(() => { });
               }
+            } else {
+              const errText = await ttsRes.text();
+              console.warn('TTS endpoint returned', ttsRes.status, errText);
             }
           } catch (e) {
             console.warn('TTS fallback failed', e);
@@ -836,6 +825,74 @@
         input.value = '';
         setTimeout(() => input.focus(), 0);
         chat.scrollTop = chat.scrollHeight;
+      }
+    }
+
+    async function playInitialGreeting() {
+      const greeting = "Hello! I'm your AI health assistant. How can I help you with your wellness journey today?";
+      let avatarOk = false;
+
+      try {
+        const avRes = await fetch('/api/avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: greeting })
+        });
+
+        if (avRes.ok) {
+          const avData = await avRes.json();
+          const aurl = avData.audio;
+          const vurl = avData.video;
+
+          if (aurl && vurl && avatarVideo) {
+            avatarOk = await playAvatarReply(aurl, vurl);
+          } else if (aurl) {
+            await playReplyAudio(aurl);
+          }
+        } else {
+          const errText = await avRes.text();
+          console.warn('Initial avatar endpoint returned', avRes.status, errText);
+        }
+      } catch (e) {
+        console.warn('Initial avatar fetch failed', e);
+      }
+
+      if (!avatarOk) {
+        try {
+          const ttsRes = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: greeting })
+          });
+
+          if (ttsRes.ok) {
+            const ttsData = await ttsRes.json();
+            const url = ttsData.audio;
+
+            if (url) {
+              await playReplyAudio(url);
+            }
+
+            if (avatarVideo) {
+              try { avatarVideo.pause(); } catch {}
+              while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
+
+              const src = document.createElement('source');
+              src.src = 'static/talking_head.mp4?t=' + Date.now();
+              src.type = 'video/mp4';
+              avatarVideo.appendChild(src);
+
+              try { avatarVideo.load(); } catch {}
+              avatarVideo.currentTime = 0;
+              await avatarVideo.play().catch(() => {});
+            }
+          } else {
+            const errText = await ttsRes.text();
+            console.warn('Initial TTS endpoint returned', ttsRes.status, errText);
+          }
+        } catch (e) {
+          console.warn('Initial TTS fallback failed', e);
+        }
       }
     }
 
@@ -858,6 +915,117 @@
     /************** Audio + Video playback (no mute UI) **************/
     const audioEl = document.getElementById('audio');
     const avatarVideo = document.getElementById('avatarVideo');
+    if (audioEl) {
+      audioEl.loop = false;
+    }
+
+    if (avatarVideo) {
+      avatarVideo.loop = false;
+    }
+    async function playReplyAudio(url) {
+      if (!audioEl || !url) return false;
+
+      const bustUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+
+      try { audioEl.pause(); } catch {}
+      try { audioEl.currentTime = 0; } catch {}
+
+      audioEl.loop = false;
+      audioEl.controls = false;
+      audioEl.src = bustUrl;
+      audioEl.preload = 'auto';
+
+      try { audioEl.load(); } catch {}
+
+      try {
+        await audioEl.play();
+        console.log('Audio started:', bustUrl);
+        return true;
+      } catch (err) {
+        console.error('audioEl.play() failed:', err);
+        return false;
+      }
+    }
+    function waitUntilCanPlay(el) {
+      return new Promise((resolve) => {
+        if (!el) return resolve();
+        if (el.readyState >= 3) return resolve();
+
+        const done = () => resolve();
+        el.addEventListener('canplay', done, { once: true });
+        el.addEventListener('loadeddata', done, { once: true });
+        el.addEventListener('error', done, { once: true });
+      });
+    }
+
+    async function playAvatarReply(audioUrl, videoUrl) {
+      if (!audioEl || !avatarVideo || !audioUrl || !videoUrl) return false;
+
+      const aurl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const vurl = videoUrl + (videoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+
+      try { audioEl.pause(); } catch {}
+      try { avatarVideo.pause(); } catch {}
+      try { audioEl.currentTime = 0; } catch {}
+      try { avatarVideo.currentTime = 0; } catch {}
+
+      audioEl.loop = false;
+      avatarVideo.loop = false;
+      avatarVideo.autoplay = false;
+
+      audioEl.src = aurl;
+      audioEl.preload = 'auto';
+
+      while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
+      const src = document.createElement('source');
+      src.src = vurl;
+      src.type = 'video/mp4';
+      avatarVideo.appendChild(src);
+
+      try { audioEl.load(); } catch {}
+      try { avatarVideo.load(); } catch {}
+
+      await Promise.all([
+        waitUntilCanPlay(audioEl),
+        waitUntilCanPlay(avatarVideo)
+      ]);
+
+      try { audioEl.currentTime = 0; } catch {}
+      try { avatarVideo.currentTime = 0; } catch {}
+
+      applyMuteState();
+
+      const results = await Promise.allSettled([
+        audioEl.play(),
+        avatarVideo.play()
+      ]);
+
+      if (results[0].status === 'rejected') {
+        console.error('audio play failed:', results[0].reason);
+        return false;
+      }
+      if (results[1].status === 'rejected') {
+        console.error('video play failed:', results[1].reason);
+      }
+
+      return true;
+    }
+    let initialGreetingStarted = false;
+
+    async function startInitialGreetingOnce() {
+      if (initialGreetingStarted) return;
+      initialGreetingStarted = true;
+      await playInitialGreeting();
+    }
+
+    document.addEventListener('click', () => {
+      startInitialGreetingOnce();
+    }, { once: true });
+
+    document.addEventListener('keydown', () => {
+      startInitialGreetingOnce();
+    }, { once: true });
+
     const muteBtn = document.getElementById('avatarMuteToggle');
     const muteIcon = document.getElementById('avatarMuteIcon');
     let avatarAudioMuted = false; // default: sound on
@@ -932,9 +1100,17 @@
 
     // Ensure the avatar video stays stopped at the end (no loop)
     if (avatarVideo) {
+      avatarVideo.loop = false;
       avatarVideo.addEventListener('ended', () => {
         avatarVideo.pause();
         // leave at end frame; next play will reset currentTime in sendMessage
+      });
+    }
+    if (audioEl) {
+      audioEl.loop = false;
+      audioEl.addEventListener('ended', () => {
+        audioEl.pause();
+        audioEl.currentTime = 0;
       });
     }
 
@@ -993,15 +1169,8 @@
     }
 
     /************** Auto-scroll **************/
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
       if (chat) chat.scrollTop = chat.scrollHeight;
-      // Initialize video state
-      // Try to start the avatar video (muted autoplay is typically allowed)
-      if (avatarVideo) {
-        avatarVideo.play().catch(() => {
-          // Autoplay might be blocked; user interaction will start it.
-        });
-      }
     });
 
     /************** Surveys UI: load & start handling **************/

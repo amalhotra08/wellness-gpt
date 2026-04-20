@@ -11,7 +11,12 @@ An advanced AI wellness companion powered by an agentic, multi-expert framework.
 
 ### Installation
 1. Clone the repository.
-2. Set up the virtual environment.
+   ```bash
+   git clone https://github.com/amalhotra08/wellness-gpt.git
+   cd wellness-gpt
+   ```
+   
+3. Set up the virtual environment.
    ```bash
    py -m venv .venv
    .venv\Scripts\activate

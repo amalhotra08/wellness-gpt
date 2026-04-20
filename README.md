@@ -18,9 +18,19 @@ An advanced AI wellness companion powered by an agentic, multi-expert framework.
    
 3. Set up the virtual environment.
    ```bash
-   py -m venv .venv
+   python -m venv .venv
    .venv\Scripts\activate
    ```
+
+**Windows (Command Prompt)**
+```bash
+.venv\Scripts\activate
+ ```
+**macOS/Linux (Terminal)**
+```bash
+source .venv/bin/activate
+ ```
+
 4. Install dependencies:
    ```bash
    pip install -r requirements.txt
@@ -37,13 +47,13 @@ An advanced AI wellness companion powered by an agentic, multi-expert framework.
 Set `GROQ_API_KEY` in your environment or `.env` file to enable the Groq LLM integration by following the instruction below.
 
 **Windows (Command Prompt)**
-
+```bash
 set GROQ_API_KEY=your_api_key_here
-
+```
 **macOS/Linux (Terminal)**
-
+```bash
 export GROQ_API_KEY="your_api_key_here"
-
+```
 *Dev Mode: (Not Recommended) If no `GROQ_API_KEY` is set, the app runs in "Dev Mode", echoing responses without hitting an external LLM.*
 
 ### Testing

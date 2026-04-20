@@ -35,13 +35,6 @@ source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
-### Running Locally
-1. Start the Flask application:
-   ```bash
-   python app.py
-   ```
-2. Open your browser to `http://localhost:5000`.
-
 ### Groq Mode
 Set `GROQ_API_KEY` in your environment or `.env` file to enable the Groq LLM integration by following the instruction below.
 
@@ -54,6 +47,13 @@ set GROQ_API_KEY=your_api_key_here
 export GROQ_API_KEY="your_api_key_here"
 ```
 *Dev Mode: (Not Recommended) If no `GROQ_API_KEY` is set, the app runs in "Dev Mode", echoing responses without hitting an external LLM.*
+
+### Running Locally
+1. Start the Flask application:
+   ```bash
+   python app.py
+   ```
+2. Open your browser to `http://localhost:5000`.
 
 ### Testing
 Run the test suite using `pytest`:

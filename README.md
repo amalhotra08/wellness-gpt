@@ -19,7 +19,6 @@ An advanced AI wellness companion powered by an agentic, multi-expert framework.
 3. Set up the virtual environment.
    ```bash
    python -m venv .venv
-   .venv\Scripts\activate
    ```
 
 **Windows (Command Prompt)**

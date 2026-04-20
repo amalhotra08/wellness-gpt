@@ -16,7 +16,7 @@ moviepy==1.0.3
 pydub==0.25.1
 audioop-lts; python_version>='3.13'
 eng_to_ipa==0.0.2
-edge-tts==6.1.12
+edge-tts>=7.2.8,<8
 flask-login==0.6.3
 flask-sqlalchemy==3.1.1
 pytest==7.4.0

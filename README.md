@@ -28,9 +28,11 @@ An advanced AI wellness companion powered by an agentic, multi-expert framework.
 **Groq Mode**: Set `GROQ_API_KEY` in your environment or `.env` file to enable the Groq LLM integration.
 
 **Windows (Command Prompt)**
+
 set GROQ_API_KEY=your_api_key_here
 
 **macOS/Linux (Terminal)**
+
 export GROQ_API_KEY="your_api_key_here"
 
 ### Testing

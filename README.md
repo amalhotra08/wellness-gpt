@@ -34,7 +34,7 @@ set GROQ_API_KEY=your_api_key_here
 
 export GROQ_API_KEY="your_api_key_here"
 
-Dev Mode: (Not Recommended) If no `GROQ_API_KEY` is set, the app runs in "Dev Mode", echoing responses without hitting an external LLM.
+*Dev Mode: (Not Recommended) If no `GROQ_API_KEY` is set, the app runs in "Dev Mode", echoing responses without hitting an external LLM.*
 
 ### Testing
 Run the test suite using `pytest`:

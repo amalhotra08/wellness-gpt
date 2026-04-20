@@ -2,6 +2,7 @@ import eng_to_ipa as ipa
 import moviepy.editor as mp
 from moviepy.video.VideoClip import ImageClip
 import os
+from pathlib import Path
 from pydub import AudioSegment
 from pydub.silence import detect_silence
 import random
@@ -947,7 +948,11 @@ async def create_talking_head(text, audio_output_path, final_output_path, base_c
 
     # Allow caller to specify path; fallback to env or prior constant
     if base_clip_path is None:
-        base_clip_path = os.getenv("AVATAR_VISEME_PATH", "/Users/ansh/Downloads/Work/HMS/repo/static/correct_crop/")
+        repo_root = Path(__file__).resolve().parent.parent
+        default_clips = repo_root / "static" / "correct_crop"
+        base_clip_path = os.getenv("AVATAR_VISEME_PATH", str(default_clips))
+    if not os.path.isdir(base_clip_path):
+        raise FileNotFoundError(f"Viseme clips not found: {base_clip_path}")
     # viseme_list = ['p', 't', 'S_cap', 'T_cap', 'f', 'k', 'i', 'l', 'r', 's', 'u', '@', 'a', 'o', 'e', 'O_cap', 'default']
     viseme_list = ['p', 't', 'S_cap', 'T_cap', 'f', 'k', 'i', 'l', 'r', 's', 'u', '@', 'a', 'o', 'e', 'O_cap', 'default']
     # Normalize source clips (if needed) to uniform codec/fps/size for safe copy-mode

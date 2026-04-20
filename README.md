@@ -11,7 +11,12 @@ An advanced AI wellness companion powered by an agentic, multi-expert framework.
 
 ### Installation
 1. Clone the repository.
-2. Install dependencies:
+2. Set up the virtual environment.
+   ```bash
+   py -m venv .venv
+   .venv\Scripts\activate
+   ```
+4. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```

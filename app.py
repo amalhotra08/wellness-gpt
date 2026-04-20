@@ -639,7 +639,10 @@ def tts_edge():
             await communicate.save(audio_path)
         asyncio.run(gen())
     except Exception as e:
-        return jsonify({"error": f"tts failed: {e}"}), 500
+        import traceback
+        traceback.print_exc()
+        print("TTS ERROR:", repr(e))
+        return jsonify({"error": f"tts failed: {repr(e)}"}), 500
 
     # Return a static-served URL path
     # Expose uploads via a simple path; Flask will serve via send_file if needed
@@ -668,7 +671,10 @@ def generate_avatar_video():
         # This renders both audio and video; it will overwrite if exists
         asyncio.run(synth_and_render(text, audio_path, video_path))
     except Exception as e:
-        # Fallback: at least provide a fresh TTS and copy the static video so browser updates per reply
+        import traceback
+        print("AVATAR RENDER ERROR:")
+        traceback.print_exc()
+
         try:
             import edge_tts
             async def gen():
@@ -676,7 +682,9 @@ def generate_avatar_video():
                 await communicate.save(audio_path)
             asyncio.run(gen())
         except Exception as tts_e:
-            return jsonify({"error": f"avatar render failed: {e}; tts fallback failed: {tts_e}"}), 500
+            print("AVATAR FALLBACK TTS ERROR:", repr(tts_e))
+            traceback.print_exc()
+            return jsonify({"error": f"avatar render failed: {repr(e)}; tts fallback failed: {repr(tts_e)}"}), 500
         # Copy a static placeholder video to ensure a unique file exists
         try:
             import shutil

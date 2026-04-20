@@ -23,8 +23,7 @@ An advanced AI wellness companion powered by an agentic, multi-expert framework.
    ```
 2. Open your browser to `http://localhost:5000`.
 
-**Dev Mode**: If no `GROQ_API_KEY` is set, the app runs in "Dev Mode", echoing responses without hitting an external LLM.
-
+### Modes
 **Groq Mode**: Set `GROQ_API_KEY` in your environment or `.env` file to enable the Groq LLM integration.
 
 **Windows (Command Prompt)**
@@ -34,6 +33,8 @@ set GROQ_API_KEY=your_api_key_here
 **macOS/Linux (Terminal)**
 
 export GROQ_API_KEY="your_api_key_here"
+
+**Dev Mode**: (Not Recommended) If no `GROQ_API_KEY` is set, the app runs in "Dev Mode", echoing responses without hitting an external LLM.
 
 ### Testing
 Run the test suite using `pytest`:

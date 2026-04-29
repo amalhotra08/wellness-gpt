@@ -3,8 +3,7 @@ import moviepy.editor as mp
 from moviepy.video.VideoClip import ImageClip
 import os
 from pathlib import Path
-from pydub import AudioSegment
-from pydub.silence import detect_silence
+# Removed pydub because it requires ffprobe on Vercel
 import random
 import edge_tts
 import asyncio

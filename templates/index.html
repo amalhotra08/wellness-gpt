@@ -875,10 +875,8 @@
             const avData = await avRes.json();
             const aurl = avData.audio;
             const vurl = avData.video;
-            if (avatarVideo) {
+            if (aurl) {
               avatarOk = await playAvatarReply(aurl, vurl || 'static/talking_head.mp4');
-            } else if (aurl) {
-              avatarOk = await playReplyAudio(aurl);
             }
           } else {
             const errText = await avRes.text();
@@ -956,10 +954,8 @@
           const aurl = avData.audio;
           const vurl = avData.video;
 
-          if (avatarVideo) {
+          if (aurl) {
             avatarOk = await playAvatarReply(aurl, vurl || 'static/talking_head.mp4');
-          } else if (aurl) {
-            avatarOk = await playReplyAudio(aurl);
           }
         } else {
           const errText = await avRes.text();
@@ -1077,76 +1073,64 @@
     }
 
     async function playAvatarReply(audioUrl, videoUrl) {
-      if (!audioEl || !avatarVideo) return false;
+      if (!audioEl || !audioUrl) return false;
     
-      const aurl = audioUrl
-        ? audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
-        : null;
-    
-      const vurl = videoUrl
-        ? videoUrl + (videoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
-        : 'static/talking_head.mp4?t=' + Date.now();
+      const aurl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const vurl = (videoUrl || 'static/talking_head.mp4') +
+        ((videoUrl || '').includes('?') ? '&' : '?') + 't=' + Date.now();
     
       try { audioEl.pause(); } catch {}
-      try { avatarVideo.pause(); } catch {}
       try { audioEl.currentTime = 0; } catch {}
-      try { avatarVideo.currentTime = 0; } catch {}
     
       audioEl.loop = false;
-      avatarVideo.loop = false;
-      avatarVideo.autoplay = false;
-    
-      if (aurl) {
-        audioEl.src = aurl;
-        audioEl.preload = 'auto';
-        try { audioEl.load(); } catch {}
-      }
-    
-      while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
-      const src = document.createElement('source');
-      src.src = vurl;
-      src.type = 'video/mp4';
-      avatarVideo.appendChild(src);
-    
-      try { avatarVideo.load(); } catch {}
-    
-      await waitUntilCanPlay(avatarVideo);
-    
-      if (aurl) {
-        await waitUntilCanPlay(audioEl);
-      }
+      audioEl.controls = false;
+      audioEl.src = aurl;
+      audioEl.preload = 'auto';
+      try { audioEl.load(); } catch {}
     
       applyMuteState();
     
       let audioStarted = false;
-      let videoStarted = false;
+      try {
+        await audioEl.play();
+        audioStarted = true;
+      } catch (err) {
+        console.warn('Audio play failed:', err);
+      }
     
-      if (aurl) {
+      if (avatarVideo) {
+        try { avatarVideo.pause(); } catch {}
+        try { avatarVideo.currentTime = 0; } catch {}
+        avatarVideo.loop = false;
+        avatarVideo.autoplay = false;
+    
+        while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
+    
+        const src = document.createElement('source');
+        src.src = vurl;
+        src.type = 'video/mp4';
+        avatarVideo.appendChild(src);
+    
+        try { avatarVideo.load(); } catch {}
+    
         try {
-          await audioEl.play();
-          audioStarted = true;
+          await avatarVideo.play();
         } catch (err) {
-          console.warn('Audio play failed, continuing without audio:', err);
+          console.warn('Video failed, falling back to static:', err);
+    
+          while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
+    
+          const fallbackSrc = document.createElement('source');
+          fallbackSrc.src = 'static/talking_head.mp4?t=' + Date.now();
+          fallbackSrc.type = 'video/mp4';
+          avatarVideo.appendChild(fallbackSrc);
+    
+          try { avatarVideo.load(); } catch {}
+          try { await avatarVideo.play(); } catch {}
         }
       }
     
-      try {
-        await avatarVideo.play();
-        videoStarted = true;
-      } catch (err) {
-        console.warn('Video play failed, falling back to static video:', err);
-    
-        while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
-        const fallbackSrc = document.createElement('source');
-        fallbackSrc.src = 'static/talking_head.mp4?t=' + Date.now();
-        fallbackSrc.type = 'video/mp4';
-        avatarVideo.appendChild(fallbackSrc);
-    
-        try { avatarVideo.load(); } catch {}
-        try { await avatarVideo.play(); } catch {}
-      }
-    
-      return audioStarted || videoStarted;
+      return audioStarted;
     }
     let initialGreetingStarted = false;
 

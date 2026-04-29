@@ -33,10 +33,10 @@ DEFAULT_BITRATE = os.getenv("AVATAR_BITRATE")  # optional, e.g., "800k"
 _VISEME_CACHE: Dict[Tuple[str, Tuple[str, ...]], Dict[str, mp.VideoFileClip]] = {}
 # Track original file paths to enable zero-reencode concat mode
 _VISEME_PATHS_CACHE: Dict[Tuple[str, Tuple[str, ...]], Dict[str, str]] = {}
-COPY_MODE = os.getenv("AVATAR_COPY_MODE", "1") != "0"  # attempt concat demuxer copy
-FORCE_REENCODE = os.getenv("AVATAR_FORCE_REENCODE", "0") == "1"
-HYBRID_ENABLED = os.getenv("AVATAR_HYBRID_CONCAT", "1") != "0"  # try fast single-pass re-encode before Python assembly
-CONCAT_REENCODE = os.getenv("AVATAR_CONCAT_REENCODE", "1") != "0"  # ffmpeg concat + re-encode (faster than Python/moviepy)
+COPY_MODE = os.getenv("AVATAR_COPY_MODE", "0") != "0"
+HYBRID_ENABLED = os.getenv("AVATAR_HYBRID_CONCAT", "0") != "0"
+CONCAT_REENCODE = os.getenv("AVATAR_CONCAT_REENCODE", "0") != "0"
+NORMALIZE_ENABLED = os.getenv("AVATAR_NORMALIZE", "0") != "0"
 SCALE_FILTER = os.getenv("AVATAR_SCALE")  # e.g. "640:-2" to downscale for speed
 NORMALIZE_ENABLED = os.getenv("AVATAR_NORMALIZE", "1") != "0"  # build uniform intermediate set for safe copy-mode
 TARGET_FPS = int(os.getenv("AVATAR_TARGET_FPS", str(DEFAULT_FPS)))

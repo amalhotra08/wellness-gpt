@@ -186,6 +186,7 @@ def check_consent():
         "consent",
         "api_consent",
         "consent_page",
+        "api_chat",
     )
 
     if request.endpoint in allowed_endpoints:

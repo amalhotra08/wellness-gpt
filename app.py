@@ -76,6 +76,16 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "landing"
 
+@login_manager.unauthorized_handler
+def unauthorized():
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "error": "auth_required",
+            "reply": "Your login session expired. Please refresh and log in again.",
+            "redirect": "/landing"
+        }), 401
+    return redirect("/landing")
+
 # Vercel can only write to /tmp
 os.makedirs("/tmp/", exist_ok=True)
 
@@ -165,12 +175,31 @@ def load_user(user_id):
 @app.before_request
 def check_consent():
     """Block access to app if consent not given."""
-    if request.endpoint in ('static', 'login', 'login_page', 'register', 'register_page', 'landing', 'logout', 'consent', 'api_consent', 'consent_page'):
+    allowed_endpoints = (
+        "static",
+        "login",
+        "login_page",
+        "register",
+        "register_page",
+        "landing",
+        "logout",
+        "consent",
+        "api_consent",
+        "consent_page",
+    )
+
+    if request.endpoint in allowed_endpoints:
         return
-    if current_user.is_authenticated:
-        # Check if user has consented
-        if not current_user.consents:
-            return redirect("/consent")
+
+    if current_user.is_authenticated and not current_user.consents:
+        if request.path.startswith("/api/"):
+            return jsonify({
+                "error": "consent_required",
+                "reply": "Please complete the consent form before continuing.",
+                "redirect": "/consent"
+            }), 403
+        return redirect("/consent")
+
 
 # ---- Helpers ----
 def _now() -> str:
@@ -389,46 +418,88 @@ def api_session_timer():
     return resp
 
 # ---- JSON chat (sync) ----
+# ---- JSON chat (sync) ----
 @app.post("/api/chat")
-@login_required
 def api_chat():
+    if not current_user.is_authenticated:
+        return jsonify({
+            "error": "auth_required",
+            "reply": "Your login session expired. Please refresh and log in again.",
+            "redirect": "/landing",
+            "session_expired": False,
+            "remaining_seconds": SESSION_DURATION_SECONDS,
+        }), 401
+
     data = request.get_json(silent=True) or {}
-    sid, _ = _ensure_session_cookie()
+
+    # Important: use the authenticated user's real conversation, not "default".
+    sid, _ = _ensure_session_cookie(make_response())
+
     user_input = (data.get("user_input") or "").strip()
     if not user_input:
         return jsonify({"reply": "Please send a message."}), 400
 
-    if current_user.is_authenticated and _session_expired(sid):
-        return jsonify({
+    if _session_expired(sid):
+        payload = {
             "reply": "The 30-minute session has ended. Thank you for participating.",
             "history_size": len(BROKER.get_history(sid)),
             "session_expired": True,
             "remaining_seconds": 0,
-        })
+        }
+        final_resp = jsonify(payload)
+        _, final_resp = _ensure_session_cookie(final_resp)
+        return final_resp
 
     low = user_input.lower()
-    wants_cites = any(k in low for k in ("source", "citation", "prove", "link", "references", "evidence"))
-    # Detect expert intent before generating reply (so future adaptation can occur if desired)
+    wants_cites = any(
+        k in low
+        for k in ("source", "citation", "prove", "link", "references", "evidence")
+    )
+
     intent = detect_expert_intent(user_input)
     intent_ctx = None
+
     if intent:
-        print(f"[expert_intent] session={sid} label={intent['label']} taxonomy={intent['taxonomy']}")
-        # Provide transient context so model acknowledges capability without re-performing search itself.
-        intent_ctx = (
-            f"Expert Finder Context: The user appears to be requesting help locating a {intent['label']} (taxonomy: {intent['taxonomy']}). "
-            "You have an auxiliary tool that will surface a separate 'Expert Finder' card in the UI handling location & provider lookup. "
-            "Do NOT claim you cannot search. Instead: briefly acknowledge the specialty, offer 1-2 screening questions or prep steps (e.g., symptoms to note, records to gather), and invite them to use the card that appears. Keep it short before your usual guidance."
+        print(
+            f"[expert_intent] session={sid} "
+            f"label={intent['label']} taxonomy={intent['taxonomy']}"
         )
-    reply = BROKER.reply_sync(sid, user_input, force_citations=wants_cites, intent_context=intent_ctx)
+        intent_ctx = (
+            f"Expert Finder Context: The user appears to be requesting help locating a "
+            f"{intent['label']} (taxonomy: {intent['taxonomy']}). "
+            "You have an auxiliary tool that will surface a separate 'Expert Finder' card "
+            "in the UI handling location & provider lookup. Do NOT claim you cannot search. "
+            "Instead: briefly acknowledge the specialty, offer 1-2 screening questions or "
+            "prep steps, and invite them to use the card that appears. Keep it short before "
+            "your usual guidance."
+        )
+
+    reply = BROKER.reply_sync(
+        sid,
+        user_input,
+        force_citations=wants_cites,
+        intent_context=intent_ctx
+    )
+
     timer_payload = _session_timer_payload(sid)
 
-    return jsonify({
+    payload = {
         "reply": reply,
         "history_size": len(BROKER.get_history(sid)),
         "expert_intent": intent,
         "session_expired": bool(timer_payload.get("expired", False)),
-        "remaining_seconds": timer_payload.get("remaining_seconds", SESSION_DURATION_SECONDS),
-    })
+        "remaining_seconds": timer_payload.get(
+            "remaining_seconds",
+            SESSION_DURATION_SECONDS
+        ),
+    }
+
+    final_resp = jsonify(payload)
+
+    # If the browser did not yet have sid, attach it to this JSON response.
+    _, final_resp = _ensure_session_cookie(final_resp)
+
+    return final_resp
 
 
 @app.get("/api/surveys")

@@ -956,10 +956,10 @@
           const aurl = avData.audio;
           const vurl = avData.video;
 
-          if (aurl && vurl && avatarVideo) {
-            avatarOk = await playAvatarReply(aurl, vurl);
+          if (avatarVideo) {
+            avatarOk = await playAvatarReply(aurl, vurl || 'static/talking_head.mp4');
           } else if (aurl) {
-            await playReplyAudio(aurl);
+            avatarOk = await playReplyAudio(aurl);
           }
         } else {
           const errText = await avRes.text();

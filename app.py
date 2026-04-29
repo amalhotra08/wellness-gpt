@@ -72,7 +72,7 @@ login_manager.init_app(app)
 login_manager.login_view = "landing"
 
 # Vercel can only write to /tmp
-os.makedirs("/tmp/uploads", exist_ok=True)
+os.makedirs("/tmp/", exist_ok=True)
 
 # Hardcoded defaults for now
 SESSION_DURATION_SECONDS = 1800
@@ -611,7 +611,7 @@ def username_endpoint():
     username = (j.get("username") or "").strip()
     if not username:
         return jsonify({"message": "username missing"}), 400
-    os.makedirs(os.path.join("uploads", username), exist_ok=True)
+    os.makedirs(os.path.join("/tmp/uploads", username), exist_ok=True)
     return jsonify({"message": "ok"})
 
 @app.post("/generate_image")
@@ -625,8 +625,8 @@ def upload_genomic():
     f = request.files.get("genomicFile")
     if not f or not f.filename:
         return jsonify({"error": "No file provided"}), 400
-    save_path = os.path.join("uploads", f.filename)
-    os.makedirs("uploads", exist_ok=True)
+    save_path = os.path.join("/tmp/uploads", f.filename)
+    os.makedirs("/tmp/uploads", exist_ok=True)
     f.save(save_path)
     # TODO: call compare_gene_conditions(save_path, ...) and return real results
     return jsonify({"uploaded": True, "records": [], "count": 0})
@@ -770,7 +770,7 @@ def tts_edge():
         text = text[:idx].strip()
 
     ts = int(time.time())
-    audio_path = os.path.join("uploads", f"tts_{ts}.mp3")
+    audio_path = os.path.join("/tmp/uploads", f"tts_{ts}.mp3")
     # Generate TTS using legacy edge-tts utility (faster than full video pipeline)
     try:
         import edge_tts
@@ -788,7 +788,7 @@ def tts_edge():
     # Expose uploads via a simple path; Flask will serve via send_file if needed
     return jsonify({
         "ok": True,
-        "audio": f"/uploads/{os.path.basename(audio_path)}"
+        "audio": f"/tmp/uploads/{os.path.basename(audio_path)}"
     })
 
 # Generate a per-reply talking head video and matching audio
@@ -804,9 +804,9 @@ def generate_avatar_video():
         text = text[:idx].strip()
 
     ts = int(time.time() * 1000)  # millisecond resolution for uniqueness
-    audio_path = os.path.join("uploads", f"av_{ts}.mp3")
-    video_path = os.path.join("uploads", f"av_{ts}.mp4")
-    os.makedirs("uploads", exist_ok=True)
+    audio_path = os.path.join("/tmp/uploads", f"av_{ts}.mp3")
+    video_path = os.path.join("/tmp/uploads", f"av_{ts}.mp4")
+    os.makedirs("/tmp/uploads", exist_ok=True)
     try:
         # This renders both audio and video; it will overwrite if exists
         asyncio.run(synth_and_render(text, audio_path, video_path))
@@ -837,14 +837,14 @@ def generate_avatar_video():
 
     return jsonify({
         "ok": True,
-        "audio": f"/uploads/{os.path.basename(audio_path)}",
-        "video": f"/uploads/{os.path.basename(video_path)}",
+        "audio": f"/tmp/uploads/{os.path.basename(audio_path)}",
+        "video": f"/tmp/uploads/{os.path.basename(video_path)}",
     })
 
 # Serve files in uploads simply
-@app.get('/uploads/<path:fname>')
+@app.get('/tmp/uploads/<path:fname>')
 def get_upload(fname):
-    p = os.path.join('uploads', fname)
+    p = os.path.join('/tmp/uploads', fname)
     if not os.path.exists(p):
         return jsonify({"error": "not found"}), 404
     from flask import send_file

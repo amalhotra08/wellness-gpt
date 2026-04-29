@@ -390,9 +390,10 @@ def api_session_timer():
 
 # ---- JSON chat (sync) ----
 @app.post("/api/chat")
+@login_required
 def api_chat():
     data = request.get_json(silent=True) or {}
-    sid = request.cookies.get("sid") or "default"
+    sid, _ = _ensure_session_cookie()
     user_input = (data.get("user_input") or "").strip()
     if not user_input:
         return jsonify({"reply": "Please send a message."}), 400
@@ -419,13 +420,14 @@ def api_chat():
             "Do NOT claim you cannot search. Instead: briefly acknowledge the specialty, offer 1-2 screening questions or prep steps (e.g., symptoms to note, records to gather), and invite them to use the card that appears. Keep it short before your usual guidance."
         )
     reply = BROKER.reply_sync(sid, user_input, force_citations=wants_cites, intent_context=intent_ctx)
-    timer_payload = _session_timer_payload(sid) if current_user.is_authenticated else {}
+    timer_payload = _session_timer_payload(sid)
+
     return jsonify({
         "reply": reply,
         "history_size": len(BROKER.get_history(sid)),
         "expert_intent": intent,
-        "session_expired": timer_payload.get("expired", False),
-        "remaining_seconds": timer_payload.get("remaining_seconds"),
+        "session_expired": bool(timer_payload.get("expired", False)),
+        "remaining_seconds": timer_payload.get("remaining_seconds", SESSION_DURATION_SECONDS),
     })
 
 

@@ -749,6 +749,12 @@
       return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
+    function parseRemainingSeconds(value) {
+      if (value === null || value === undefined || value === '') return null;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+
     function updateSessionTimerUI() {
       if (timerDisplay) timerDisplay.textContent = formatRemaining(sessionRemainingSeconds);
       if (timerBox) timerBox.classList.toggle('expired', hasSessionEnded);
@@ -775,8 +781,9 @@
         const res = await fetch('/api/session/timer', { headers: { 'Accept': 'application/json' } });
         if (!res.ok) return;
         const data = await res.json();
-        if (Number.isFinite(Number(data.remaining_seconds))) {
-          sessionRemainingSeconds = Number(data.remaining_seconds);
+        const syncedRemaining = parseRemainingSeconds(data.remaining_seconds);
+        if (syncedRemaining !== null) {
+          sessionRemainingSeconds = syncedRemaining;
         }
         if (data.expired || sessionRemainingSeconds <= 0) {
           endSessionUI(false);
@@ -834,8 +841,9 @@
         }
 
         const data = await res.json();
-        if (Number.isFinite(Number(data.remaining_seconds))) {
-          sessionRemainingSeconds = Number(data.remaining_seconds);
+        const replyRemaining = parseRemainingSeconds(data.remaining_seconds);
+        if (replyRemaining !== null) {
+          sessionRemainingSeconds = replyRemaining;
           updateSessionTimerUI();
         }
         const replyText = (data.reply ?? data.message ?? '').toString().trim();

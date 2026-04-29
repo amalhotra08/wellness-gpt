@@ -87,7 +87,7 @@ def unauthorized():
     return redirect("/landing")
 
 # Vercel can only write to /tmp
-os.makedirs("/tmp/", exist_ok=True)
+os.makedirs("/tmp/uploads", exist_ok=True)
 
 # Hardcoded defaults for now
 SESSION_DURATION_SECONDS = 1800

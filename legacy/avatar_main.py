@@ -38,7 +38,6 @@ HYBRID_ENABLED = os.getenv("AVATAR_HYBRID_CONCAT", "0") != "0"
 CONCAT_REENCODE = os.getenv("AVATAR_CONCAT_REENCODE", "0") != "0"
 NORMALIZE_ENABLED = os.getenv("AVATAR_NORMALIZE", "0") != "0"
 SCALE_FILTER = os.getenv("AVATAR_SCALE")  # e.g. "640:-2" to downscale for speed
-NORMALIZE_ENABLED = os.getenv("AVATAR_NORMALIZE", "1") != "0"  # build uniform intermediate set for safe copy-mode
 TARGET_FPS = int(os.getenv("AVATAR_TARGET_FPS", str(DEFAULT_FPS)))
 NORMALIZED_SUBDIR = os.getenv("AVATAR_NORMALIZED_DIR", "_normalized")
 DEBUG = os.getenv("AVATAR_DEBUG", "0") == "1"
@@ -1064,10 +1063,14 @@ async def create_talking_head(text, audio_output_path, final_output_path, base_c
     if DEFAULT_BITRATE:
         ffmpeg_params.extend(["-b:v", DEFAULT_BITRATE])
     t0 = time.time()
+    temp_audiofile = f"/tmp/{Path(final_output_path).stem}_TEMP_MPY_wvf_snd.m4a"
+
     final_video.write_videofile(
         final_output_path,
         codec=DEFAULT_CODEC,
         audio_codec="aac",
+        temp_audiofile=temp_audiofile,
+        remove_temp=True,
         threads=os.cpu_count() or 8,
         fps=DEFAULT_FPS,
         preset=DEFAULT_PRESET,

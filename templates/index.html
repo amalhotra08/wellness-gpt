@@ -778,13 +778,23 @@
 
     async function syncSessionTimer() {
       try {
-        const res = await fetch('/api/session/timer', { headers: { 'Accept': 'application/json' } });
-        if (!res.ok) return;
+        const res = await fetch('/api/session/timer', {
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        });
+    
+        if (!res.ok) {
+          console.warn('Timer sync failed:', res.status);
+          return;
+        }
+    
         const data = await res.json();
         const syncedRemaining = parseRemainingSeconds(data.remaining_seconds);
+    
         if (syncedRemaining !== null) {
           sessionRemainingSeconds = syncedRemaining;
         }
+    
         if (data.expired || sessionRemainingSeconds <= 0) {
           endSessionUI(false);
         } else {

@@ -49,7 +49,10 @@ app = Flask(
 )
 
 # Hardcoded for now. Not best practice, but avoids the production env var crash.
-app.config["SECRET_KEY"] = "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"
+app.config["SECRET_KEY"] = os.environ.get(
+    "SECRET_KEY",
+    "dev-secret-key-change-in-prod"
+)
 
 # Vercel cannot write to sqlite:///hms_gami.sqlite because that resolves under the app/instance path.
 # Use /tmp so SQLAlchemy can create/write the SQLite file.

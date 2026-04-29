@@ -617,7 +617,7 @@
               <img id="avatarMuteIcon" class="audio-icon" src="static/audio_on.png" alt="Mute" />
             </button>
             <video id="avatarVideo" muted playsinline>
-              <source src="static/talking_head.mp4" type="video/mp4">
+              <source src="/static/talking_head.mp4" type="video/mp4">
               Your browser does not support the video tag.
             </video>
           </div>
@@ -876,7 +876,7 @@
             const aurl = avData.audio;
             const vurl = avData.video;
             if (aurl) {
-              avatarOk = await playAvatarReply(aurl, vurl || 'static/talking_head.mp4');
+              avatarOk = await playAvatarReply(aurl, vurl || '/static/talking_head.mp4');
             }
           } else {
             const errText = await avRes.text();
@@ -901,7 +901,7 @@
                 await playReplyAudio(url);
               }
               if (avatarVideo) {
-                const staticSrc = 'static/talking_head.mp4';
+                const staticSrc = '/static/talking_head.mp4';
                 while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
                 const src = document.createElement('source');
                 src.src = staticSrc + '?t=' + Date.now();
@@ -955,7 +955,7 @@
           const vurl = avData.video;
 
           if (aurl) {
-            avatarOk = await playAvatarReply(aurl, vurl || 'static/talking_head.mp4');
+            avatarOk = await playAvatarReply(aurl, vurl || '/static/talking_head.mp4');
           }
         } else {
           const errText = await avRes.text();
@@ -986,7 +986,7 @@
               while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
 
               const src = document.createElement('source');
-              src.src = 'static/talking_head.mp4?t=' + Date.now();
+              src.src = '/static/talking_head.mp4?t=' + Date.now();
               src.type = 'video/mp4';
               avatarVideo.appendChild(src);
 
@@ -1076,7 +1076,7 @@
       if (!audioEl || !audioUrl) return false;
     
       const aurl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-      const vurl = (videoUrl || 'static/talking_head.mp4') +
+      const vurl = (videoUrl || '/static/talking_head.mp4') +
         ((videoUrl || '').includes('?') ? '&' : '?') + 't=' + Date.now();
     
       try { audioEl.pause(); } catch {}
@@ -1121,7 +1121,7 @@
           while (avatarVideo.firstChild) avatarVideo.removeChild(avatarVideo.firstChild);
     
           const fallbackSrc = document.createElement('source');
-          fallbackSrc.src = 'static/talking_head.mp4?t=' + Date.now();
+          fallbackSrc.src = '/static/talking_head.mp4?t=' + Date.now();
           fallbackSrc.type = 'video/mp4';
           avatarVideo.appendChild(fallbackSrc);
     

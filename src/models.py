@@ -10,6 +10,9 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    # Random study identifier shown to the participant in the first GPT greeting.
+    # Kept separate from username so questionnaire exports can be matched without using login names.
+    participant_pin = db.Column(db.String(12), unique=True, nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationship to conversations

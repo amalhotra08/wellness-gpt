@@ -93,6 +93,25 @@
       color: var(--accent);
     }
 
+    .session-timer {
+      min-width: 128px;
+      text-align: right;
+      color: var(--text-sub);
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .session-timer strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      letter-spacing: 0.4px;
+    }
+
+    .session-timer.expired strong {
+      color: #c0392b;
+    }
+
     /* Layout */
     .wrap {
       display: grid;
@@ -537,7 +556,10 @@
   <header>
     <button id="themeToggle" aria-pressed="false" title="Toggle dark mode">🌙 Dark</button>
     <h1>Chat System A Website Demo</h1>
-    <span style="width:44px;display:inline-block"></span>
+    <div id="sessionTimer" class="session-timer" title="30-minute session countdown">
+      Session time remaining
+      <strong id="sessionTimerDisplay">30:00</strong>
+    </div>
   </header>
 
   <div class="wrap">
@@ -561,12 +583,12 @@
       <!-- Chat (left) -->
       <div class="chat-column">
         <div class="chat-container" id="chatContainer">
-          <div class="message assistant">
-            <div class="message-content">
-              Hello! I'm your AI health assistant. How can I help you with your wellness journey today?
-            </div>
-            <div class="message-timestamp">Just now</div>
+          {% for message in data.messages %}
+          <div class="message {{ 'user' if message.role == 'user' else 'assistant' }}">
+            <div class="message-content">{{ message.content }}</div>
+            <div class="message-timestamp">{{ message.time or 'Just now' }}</div>
           </div>
+          {% endfor %}
         </div>
 
         <form id="message-form" autocomplete="off">
@@ -691,6 +713,13 @@
     const form = document.getElementById('message-form');
     const input = document.getElementById('user_input');
     const sendBtn = document.getElementById('sendMessageButton');
+    const timerBox = document.getElementById('sessionTimer');
+    const timerDisplay = document.getElementById('sessionTimerDisplay');
+    const INITIAL_GREETING = {{ initial_greeting | tojson }};
+    const SHOULD_PLAY_INITIAL_GREETING = {{ play_initial_greeting | tojson }};
+    let sessionRemainingSeconds = Number({{ session_remaining_seconds | tojson }});
+    let hasSessionEnded = Boolean({{ session_expired | tojson }}) || sessionRemainingSeconds <= 0;
+    let sessionEndNoticeShown = false;
 
     function timestamp() {
       const d = new Date();
@@ -713,7 +742,71 @@
       return msg;
     }
 
+    function formatRemaining(seconds) {
+      const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+      const mins = Math.floor(safe / 60);
+      const secs = safe % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function updateSessionTimerUI() {
+      if (timerDisplay) timerDisplay.textContent = formatRemaining(sessionRemainingSeconds);
+      if (timerBox) timerBox.classList.toggle('expired', hasSessionEnded);
+    }
+
+    function endSessionUI(showNotice = true) {
+      if (hasSessionEnded && sessionEndNoticeShown) return;
+      hasSessionEnded = true;
+      sessionRemainingSeconds = 0;
+      updateSessionTimerUI();
+      input.disabled = true;
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Session ended';
+      const surveyBtn = document.getElementById('startSurveyBtn');
+      if (surveyBtn) surveyBtn.disabled = true;
+      if (showNotice && !sessionEndNoticeShown) {
+        appendMessage('assistant', 'The 30-minute session has ended. Thank you for participating.');
+        sessionEndNoticeShown = true;
+      }
+    }
+
+    async function syncSessionTimer() {
+      try {
+        const res = await fetch('/api/session/timer', { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Number.isFinite(Number(data.remaining_seconds))) {
+          sessionRemainingSeconds = Number(data.remaining_seconds);
+        }
+        if (data.expired || sessionRemainingSeconds <= 0) {
+          endSessionUI(false);
+        } else {
+          hasSessionEnded = false;
+          updateSessionTimerUI();
+        }
+      } catch (e) {
+        console.warn('Could not sync session timer', e);
+      }
+    }
+
+    updateSessionTimerUI();
+    if (hasSessionEnded) {
+      endSessionUI(false);
+    } else {
+      setInterval(() => {
+        if (hasSessionEnded) return;
+        sessionRemainingSeconds -= 1;
+        if (sessionRemainingSeconds <= 0) endSessionUI(true);
+        else updateSessionTimerUI();
+      }, 1000);
+      setInterval(syncSessionTimer, 30000);
+    }
+
     async function sendMessage(text) {
+      if (hasSessionEnded) {
+        endSessionUI(true);
+        return;
+      }
       appendMessage('user', text);
       const pending = appendMessage('assistant', '…', { pending: true });
 
@@ -741,9 +834,18 @@
         }
 
         const data = await res.json();
+        if (Number.isFinite(Number(data.remaining_seconds))) {
+          sessionRemainingSeconds = Number(data.remaining_seconds);
+          updateSessionTimerUI();
+        }
         const replyText = (data.reply ?? data.message ?? '').toString().trim();
         pending.querySelector('.message-content').textContent = replyText || '(no content)';
         pending.classList.remove('pending');
+
+        if (data.session_expired) {
+          endSessionUI(false);
+          return;
+        }
 
         // Consume expert intent directly from /api/chat response (primary path)
         if (data.expert_intent) {
@@ -818,17 +920,20 @@
         pending.classList.remove('pending');
         console.error(err);
       } finally {
-        // Re-enable controls and clear for next entry
-        sendBtn.disabled = false;
-        input.disabled = false;
+        // Re-enable controls and clear for next entry, unless the 30-minute session ended.
+        if (!hasSessionEnded) {
+          sendBtn.disabled = false;
+          input.disabled = false;
+          sendBtn.textContent = 'Send';
+          setTimeout(() => input.focus(), 0);
+        }
         input.value = '';
-        setTimeout(() => input.focus(), 0);
         chat.scrollTop = chat.scrollHeight;
       }
     }
 
     async function playInitialGreeting() {
-      const greeting = "Hello! I'm your AI health assistant. How can I help you with your wellness journey today?";
+      const greeting = INITIAL_GREETING;
       let avatarOk = false;
 
       try {
@@ -898,7 +1003,10 @@
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = (input.value || '').trim();
-      if (!text || sendBtn.disabled) return; // guard against rapid double click
+      if (!text || sendBtn.disabled || hasSessionEnded) {
+        if (hasSessionEnded) endSessionUI(true);
+        return;
+      }
       sendMessage(text);
     });
 
@@ -906,7 +1014,10 @@
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         const text = (input.value || '').trim();
-        if (!text) return;
+        if (!text || hasSessionEnded) {
+          if (hasSessionEnded) endSessionUI(true);
+          return;
+        }
         sendMessage(text);
       }
     });
@@ -1012,7 +1123,7 @@
     let initialGreetingStarted = false;
 
     async function startInitialGreetingOnce() {
-      if (initialGreetingStarted) return;
+      if (!SHOULD_PLAY_INITIAL_GREETING || initialGreetingStarted) return;
       initialGreetingStarted = true;
       await playInitialGreeting();
     }
@@ -1197,6 +1308,10 @@
     }
 
     async function startSurvey() {
+      if (hasSessionEnded) {
+        endSessionUI(true);
+        return;
+      }
       const sid = (surveySelect.value || '').trim();
       if (!sid) {
         alert('Please choose a survey');
@@ -1208,7 +1323,14 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ survey_id: sid })
         });
-        if (!r.ok) throw new Error('Server error ' + r.status);
+        if (!r.ok) {
+          let errPayload = {};
+          try { errPayload = await r.json(); } catch {}
+          if (errPayload.session_expired) {
+            endSessionUI(true);
+          }
+          throw new Error(errPayload.error || ('Server error ' + r.status));
+        }
         const j = await r.json();
         // If backend returned an assistant_message, append it to chat immediately
         if (j.assistant_message) {
@@ -1216,14 +1338,16 @@
         }
         // (UI change) Do not show the survey progress indicator — keep the UI clean and conversational.
         // Ensure input is enabled so the user can reply immediately
-        input.disabled = false;
-        sendBtn.disabled = false;
-        setTimeout(() => input.focus(), 50);
+        if (!hasSessionEnded) {
+          input.disabled = false;
+          sendBtn.disabled = false;
+          setTimeout(() => input.focus(), 50);
+        }
         // Intentionally do NOT start the survey SSE progress indicator to keep UI minimal.
       } catch (e) {
         alert('Failed to start survey: ' + (e.message || e));
       } finally {
-        startSurveyBtn.disabled = false;
+        startSurveyBtn.disabled = hasSessionEnded;
       }
     }
 
@@ -1244,9 +1368,11 @@
           const total = payload.total || 0;
           const complete = payload.complete || false;
           // Progress indicator is hidden by UI preference; do not change display state.
-          // Ensure chat input remains enabled while survey runs so user can stay conversational
-          input.disabled = false;
-          sendBtn.disabled = false;
+          // Ensure chat input remains enabled while survey runs, unless the session timer has ended.
+          if (!hasSessionEnded) {
+            input.disabled = false;
+            sendBtn.disabled = false;
+          }
           if (total > 0) {
             const pct = Math.round((answered / total) * 100);
             document.getElementById('surveyProgressBar').style.width = pct + '%';
@@ -1263,9 +1389,11 @@
             appendMessage('assistant', summary);
             // close SSE after completion
             if (_sse) { _sse.close(); _sse = null; }
-            // Re-enable input explicitly after survey finishes
-            input.disabled = false;
-            sendBtn.disabled = false;
+            // Re-enable input explicitly after survey finishes, unless the session timer has ended.
+            if (!hasSessionEnded) {
+              input.disabled = false;
+              sendBtn.disabled = false;
+            }
           }
         } catch (e) {
           console.warn('Invalid SSE payload', e);
@@ -1274,9 +1402,11 @@
       _sse.onerror = (e) => {
         // Keep the UI but log; EventSource reconnects automatically
         console.warn('SSE error', e);
-        // If an SSE error occurs, ensure controls aren't left disabled
-        input.disabled = false;
-        sendBtn.disabled = false;
+        // If an SSE error occurs, ensure controls aren't left disabled unless the session timer has ended.
+        if (!hasSessionEnded) {
+          input.disabled = false;
+          sendBtn.disabled = false;
+        }
       };
     }
 

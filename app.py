@@ -2,6 +2,8 @@
 import os
 import time
 import uuid
+import secrets
+from datetime import datetime, timedelta
 from flask import (
     Flask,
     render_template,
@@ -24,6 +26,7 @@ from dotenv import load_dotenv
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
+from sqlalchemy import inspect, text
 from src.models import db, User, Conversation, Message, Consent
 
 load_dotenv()   # loads .env into os.environ
@@ -55,9 +58,42 @@ login_manager.login_view = 'landing'
 
 os.makedirs("uploads", exist_ok=True)
 
+SESSION_DURATION_SECONDS = int(os.environ.get("SESSION_DURATION_SECONDS", "1800"))
+PARTICIPANT_PIN_LENGTH = int(os.environ.get("PARTICIPANT_PIN_LENGTH", "6"))
+
+def _generate_unique_participant_pin() -> str:
+    """Return a random numeric participant PIN that is unique in the users table."""
+    digits = max(4, PARTICIPANT_PIN_LENGTH)
+    upper_bound = 10 ** digits
+    for _ in range(50):
+        candidate = f"{secrets.randbelow(upper_bound):0{digits}d}"
+        if not User.query.filter_by(participant_pin=candidate).first():
+            return candidate
+    # Extremely unlikely fallback: include a short UUID-derived suffix if the PIN space is saturated.
+    return f"{secrets.randbelow(upper_bound):0{digits}d}-{uuid.uuid4().hex[:4]}"
+
+def _ensure_user_pin(user: User) -> str:
+    """Backfill a participant PIN for older accounts and return it."""
+    if not getattr(user, "participant_pin", None):
+        user.participant_pin = _generate_unique_participant_pin()
+        db.session.add(user)
+        db.session.commit()
+    return user.participant_pin
+
+def _ensure_runtime_schema() -> None:
+    """Small safety migration for local SQLite/db.create_all deployments."""
+    inspector = inspect(db.engine)
+    user_columns = {c["name"] for c in inspector.get_columns("users")}
+    with db.engine.begin() as conn:
+        if "participant_pin" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN participant_pin VARCHAR(12)"))
+        # SQLite allows multiple NULLs in a unique index, which is useful while old users are backfilled.
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_participant_pin ON users (participant_pin)"))
+
 # Create tables within app context
 with app.app_context():
     db.create_all()
+    _ensure_runtime_schema()
 
 # Single broker instance (swap for per-user if you add auth/DB later)
 BROKER = LlmBroker()
@@ -80,6 +116,45 @@ def check_consent():
 def _now() -> str:
     return time.ctime(time.time())
 
+def _initial_greeting() -> str:
+    """First assistant message shown/saved for the participant."""
+    pin_line = ""
+    if current_user.is_authenticated:
+        pin = _ensure_user_pin(current_user)
+        pin_line = (
+            f"\n\nYour participant PIN code is: {pin}. "
+            "Please keep this code so questionnaire responses can be matched with your session engagement metrics."
+        )
+    return "Hello! I'm your AI health assistant. How can I help you with your wellness journey today?" + pin_line
+
+def _conversation_for_user():
+    if not current_user.is_authenticated:
+        return None
+    return Conversation.query.filter_by(user_id=current_user.id).order_by(Conversation.updated_at.desc()).first()
+
+def _session_timer_payload(session_id=None) -> dict:
+    """Return server-authoritative countdown metadata for the active conversation."""
+    conv = Conversation.query.get(session_id) if session_id else _conversation_for_user()
+    if not conv:
+        return {
+            "duration_seconds": SESSION_DURATION_SECONDS,
+            "remaining_seconds": SESSION_DURATION_SECONDS,
+            "expired": False,
+        }
+    start_at = conv.created_at or datetime.utcnow()
+    expires_at = start_at + timedelta(seconds=SESSION_DURATION_SECONDS)
+    remaining = max(0, int((expires_at - datetime.utcnow()).total_seconds()))
+    return {
+        "duration_seconds": SESSION_DURATION_SECONDS,
+        "remaining_seconds": remaining,
+        "expired": remaining <= 0,
+        "started_at": start_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "expires_at": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+def _session_expired(session_id=None) -> bool:
+    return bool(_session_timer_payload(session_id).get("expired"))
+
 def _data_for_render(session_id: str):
     """
     Template data with existing history or a default greeting.
@@ -88,7 +163,7 @@ def _data_for_render(session_id: str):
     if not hist:
         return {
             "messages": [
-                {"role": "assistant", "content": "Hello! How can I assist you today?", "time": _now()}
+                {"role": "assistant", "content": _initial_greeting(), "time": _now()}
             ],
             "summary": "",
         }
@@ -156,7 +231,11 @@ def register():
         flash("Username already exists")
         return redirect("/register")
         
-    user = User(username=username, password_hash=generate_password_hash(password))
+    user = User(
+        username=username,
+        password_hash=generate_password_hash(password),
+        participant_pin=_generate_unique_participant_pin(),
+    )
     db.session.add(user)
     db.session.commit()
     
@@ -186,6 +265,7 @@ def login():
     
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password_hash, password):
+        _ensure_user_pin(user)
         login_user(user)
         return redirect("/")
         
@@ -200,30 +280,52 @@ def logout():
     resp.delete_cookie("sid")
     return resp
 
+def _index_template_context(session_id: str, play_initial_greeting: bool = False) -> dict:
+    timer = _session_timer_payload(session_id)
+    return {
+        "data": _data_for_render(session_id),
+        "initial_greeting": _initial_greeting(),
+        "play_initial_greeting": play_initial_greeting,
+        "session_timer": timer,
+        "session_duration_seconds": timer.get("duration_seconds", SESSION_DURATION_SECONDS),
+        "session_remaining_seconds": timer.get("remaining_seconds", SESSION_DURATION_SECONDS),
+        "session_expired": timer.get("expired", False),
+        "participant_pin": _ensure_user_pin(current_user),
+    }
+
 @app.route("/", methods=["GET", "POST"])
 @login_required
 def index():
-    # Keep the same session between requests via cookie
+    # Keep the same session between requests via cookie.
     if request.method == "POST":
-        sid, _ = _ensure_session_cookie() # Just to get correct ID
-        text = (request.form.get("user_input") or "").strip()
-        if text:
-            BROKER.reply_sync(sid, text)
-        # re-render with updated messages
-        resp = make_response(render_template("index.html", data=_data_for_render(sid)))
-        _, resp = _ensure_session_cookie(resp) # Ensure cookie set
+        sid, _ = _ensure_session_cookie()
+        text_value = (request.form.get("user_input") or "").strip()
+        if text_value and not _session_expired(sid):
+            BROKER.reply_sync(sid, text_value)
+        resp = make_response(render_template("index.html", **_index_template_context(sid)))
+        _, resp = _ensure_session_cookie(resp)
         return resp
 
-    # GET: make sure we set the cookie if missing, and seed greeting if empty
-    # Render with placeholders first, then cookie logic attaches
-    resp = make_response(render_template("index.html", data={"messages": [], "summary": ""}))
+    # GET: set a conversation cookie, seed the first GPT greeting once, then render history.
+    resp = make_response()
     sid, resp = _ensure_session_cookie(resp)
-    
-    if sid:
-        if BROKER.history_size(sid) == 0:
-            BROKER.add_assistant(sid, "Hello! How can I assist you today?")
-        # render again with real history
-        resp.set_data(render_template("index.html", data=_data_for_render(sid)))
+    play_initial = False
+    if sid and BROKER.history_size(sid) == 0:
+        BROKER.add_assistant(sid, _initial_greeting())
+        play_initial = True
+    resp.set_data(render_template("index.html", **_index_template_context(sid, play_initial_greeting=play_initial)))
+    return resp
+
+
+@app.get("/api/session/timer")
+@login_required
+def api_session_timer():
+    """Return the authoritative 30-minute session countdown for the current conversation."""
+    resp = make_response()
+    sid, resp = _ensure_session_cookie(resp)
+    payload = {"ok": True, **_session_timer_payload(sid)}
+    resp.set_data(json.dumps(payload))
+    resp.mimetype = "application/json"
     return resp
 
 # ---- JSON chat (sync) ----
@@ -234,6 +336,14 @@ def api_chat():
     user_input = (data.get("user_input") or "").strip()
     if not user_input:
         return jsonify({"reply": "Please send a message."}), 400
+
+    if current_user.is_authenticated and _session_expired(sid):
+        return jsonify({
+            "reply": "The 30-minute session has ended. Thank you for participating.",
+            "history_size": len(BROKER.get_history(sid)),
+            "session_expired": True,
+            "remaining_seconds": 0,
+        })
 
     low = user_input.lower()
     wants_cites = any(k in low for k in ("source", "citation", "prove", "link", "references", "evidence"))
@@ -249,10 +359,13 @@ def api_chat():
             "Do NOT claim you cannot search. Instead: briefly acknowledge the specialty, offer 1-2 screening questions or prep steps (e.g., symptoms to note, records to gather), and invite them to use the card that appears. Keep it short before your usual guidance."
         )
     reply = BROKER.reply_sync(sid, user_input, force_citations=wants_cites, intent_context=intent_ctx)
+    timer_payload = _session_timer_payload(sid) if current_user.is_authenticated else {}
     return jsonify({
         "reply": reply,
         "history_size": len(BROKER.get_history(sid)),
         "expert_intent": intent,
+        "session_expired": timer_payload.get("expired", False),
+        "remaining_seconds": timer_payload.get("remaining_seconds"),
     })
 
 
@@ -276,6 +389,8 @@ def api_select_survey():
         return jsonify({"ok": False, "error": "surveys unavailable"}), 500
     if not survey_id:
         return jsonify({"ok": False, "error": "survey_id missing"}), 400
+    if current_user.is_authenticated and _session_expired(sid):
+        return jsonify({"ok": False, "error": "session timer expired", "session_expired": True}), 403
     ok = mgr.start_survey(sid, survey_id)
     resp_data = {"ok": ok, "survey_id": survey_id}
     # If started successfully, generate an assistant starter message + first question and return it
@@ -362,6 +477,7 @@ def api_survey_download():
         return jsonify({"ok": False, "error": "surveys unavailable"}), 500
     st = mgr.get_state(sid) or {}
     record = {
+        "participant_pin": _ensure_user_pin(current_user) if current_user.is_authenticated else None,
         "session_id": sid,
         "survey_id": st.get("survey_id"),
         "responses": st.get("responses", {}),
@@ -439,6 +555,13 @@ def stream_chat():
     message = (data.get("message") or "").strip()
     if not message:
         return Response("event: final\ndata: missing message\n\n", mimetype="text/event-stream")
+
+    if current_user.is_authenticated and _session_expired(sid):
+        return Response(
+            "event: token\ndata: The 30-minute session has ended. Thank you for participating.\n\n"
+            "event: final\ndata: session_expired\n\n",
+            mimetype="text/event-stream",
+        )
 
     low = message.lower()
     wants_cites = any(k in low for k in ("source", "citation", "prove", "link", "references", "evidence"))
@@ -567,7 +690,7 @@ def summary_download():
      <h1 style='margin:0 0 4px 0;'>Session Summary</h1>
      <div class='badge'>Chat System A</div>
    </div>
-   <div style='text-align:right;font-size:12px;color:#555;'>Session: {sid}<br>Generated: {time.ctime(time.time())}</div>
+   <div style='text-align:right;font-size:12px;color:#555;'>Participant PIN: {_ensure_user_pin(current_user) if current_user.is_authenticated else 'N/A'}<br>Session: {sid}<br>Generated: {time.ctime(time.time())}</div>
  </div>
  {body_html}
  <div class='footer-note'>Generated by Chat System A – AI wellness companion.</div>

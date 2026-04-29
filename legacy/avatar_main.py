@@ -4,6 +4,8 @@ from moviepy.video.VideoClip import ImageClip
 import os
 from pathlib import Path
 # Removed pydub because it requires ffprobe on Vercel
+import numpy as np
+import miniaudio
 import random
 import edge_tts
 import asyncio
@@ -101,24 +103,80 @@ async def text_to_speech(text, output_path, voice="en-US-GuyNeural"):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
+def _load_audio_samples(audio_path):
+    """
+    Load MP3/WAV audio without ffmpeg/ffprobe.
+    Returns mono float samples and sample rate.
+    """
+    decoded = miniaudio.decode_file(audio_path)
+
+    samples = np.array(decoded.samples, dtype=np.float32)
+
+    if decoded.nchannels > 1:
+        samples = samples.reshape(-1, decoded.nchannels).mean(axis=1)
+
+    max_val = np.max(np.abs(samples)) if samples.size else 1.0
+    if max_val > 0:
+        samples = samples / max_val
+
+    return samples, decoded.sample_rate
+
 def detect_silence_segments(audio_path, min_silence_len=None, silence_thresh=None):
     """
-    Detect silent segments in a TTS audio file.
-
-    Args:
-        audio_path (str): The path to the audio file.
-        min_silence_len (int, optional): Minimum length of silence to detect (in ms). Defaults to 200.
-        silence_thresh (int, optional): Silence threshold (in dB). Defaults to -40.
-
-    Returns:
-        list: A list of tuples representing the start and end of silent segments.
+    Detect silence without pydub/ffprobe.
+    Returns pydub-compatible ranges: [(start_ms, end_ms), ...]
     """
-    audio = AudioSegment.from_file(audio_path)
     if min_silence_len is None:
         min_silence_len = SILENCE_MIN_LEN
     if silence_thresh is None:
         silence_thresh = SILENCE_THRESH
-    silence_ranges = detect_silence(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
+
+    samples, sample_rate = _load_audio_samples(audio_path)
+
+    if samples.size == 0:
+        return []
+
+    threshold = 10 ** (silence_thresh / 20.0)
+
+    window_ms = 10
+    window_size = max(1, int(sample_rate * window_ms / 1000))
+    min_silent_windows = max(1, int(min_silence_len / window_ms))
+
+    silent_windows = []
+
+    for start in range(0, len(samples), window_size):
+        chunk = samples[start:start + window_size]
+        if chunk.size == 0:
+            continue
+
+        rms = float(np.sqrt(np.mean(chunk ** 2)))
+        silent_windows.append(rms < threshold)
+
+    silence_ranges = []
+    silence_start_window = None
+
+    for i, is_silent in enumerate(silent_windows):
+        if is_silent and silence_start_window is None:
+            silence_start_window = i
+
+        elif not is_silent and silence_start_window is not None:
+            silent_count = i - silence_start_window
+
+            if silent_count >= min_silent_windows:
+                start_ms = silence_start_window * window_ms
+                end_ms = i * window_ms
+                silence_ranges.append((start_ms, end_ms))
+
+            silence_start_window = None
+
+    if silence_start_window is not None:
+        silent_count = len(silent_windows) - silence_start_window
+
+        if silent_count >= min_silent_windows:
+            start_ms = silence_start_window * window_ms
+            end_ms = len(silent_windows) * window_ms
+            silence_ranges.append((start_ms, end_ms))
+
     return silence_ranges
 
 def preload_viseme_clips(viseme_list: List[str], base_path: str) -> Dict[str, mp.VideoFileClip]:
@@ -939,8 +997,8 @@ async def create_talking_head(text, audio_output_path, final_output_path, base_c
     await text_to_speech(text, audio_output_path)
     print("tts finished")
 
-    audio = AudioSegment.from_file(audio_output_path)
-    audio_duration = len(audio) / 1000
+    samples, sample_rate = _load_audio_samples(audio_output_path)
+    audio_duration = len(samples) / sample_rate
     print("detecting silence")
     silence_ranges = detect_silence_segments(audio_output_path)
     print("silence ranges detected, creating video from visemes ")

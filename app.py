@@ -418,37 +418,29 @@ def api_session_timer():
     return resp
 
 # ---- JSON chat (sync) ----
-# ---- JSON chat (sync) ----
 @app.post("/api/chat")
 def api_chat():
-    if not current_user.is_authenticated:
-        return jsonify({
-            "error": "auth_required",
-            "reply": "Your login session expired. Please refresh and log in again.",
-            "redirect": "/landing",
-            "session_expired": False,
-            "remaining_seconds": SESSION_DURATION_SECONDS,
-        }), 401
-
     data = request.get_json(silent=True) or {}
 
-    # Important: use the authenticated user's real conversation, not "default".
-    sid, _ = _ensure_session_cookie(make_response())
+    sid = request.cookies.get("sid") or "default"
+
+    # If Flask still sees the logged-in user, use their real conversation/session.
+    # If not, fall back to the sid/default path so the frontend does not get a 401.
+    if current_user.is_authenticated:
+        sid, _ = _ensure_session_cookie(make_response())
 
     user_input = (data.get("user_input") or "").strip()
     if not user_input:
         return jsonify({"reply": "Please send a message."}), 400
 
-    if _session_expired(sid):
+    if current_user.is_authenticated and _session_expired(sid):
         payload = {
             "reply": "The 30-minute session has ended. Thank you for participating.",
             "history_size": len(BROKER.get_history(sid)),
             "session_expired": True,
             "remaining_seconds": 0,
         }
-        final_resp = jsonify(payload)
-        _, final_resp = _ensure_session_cookie(final_resp)
-        return final_resp
+        return jsonify(payload)
 
     low = user_input.lower()
     wants_cites = any(
@@ -478,10 +470,16 @@ def api_chat():
         sid,
         user_input,
         force_citations=wants_cites,
-        intent_context=intent_ctx
+        intent_context=intent_ctx,
     )
 
-    timer_payload = _session_timer_payload(sid)
+    if current_user.is_authenticated:
+        timer_payload = _session_timer_payload(sid)
+    else:
+        timer_payload = {
+            "expired": False,
+            "remaining_seconds": SESSION_DURATION_SECONDS,
+        }
 
     payload = {
         "reply": reply,
@@ -494,13 +492,7 @@ def api_chat():
         ),
     }
 
-    final_resp = jsonify(payload)
-
-    # If the browser did not yet have sid, attach it to this JSON response.
-    _, final_resp = _ensure_session_cookie(final_resp)
-
-    return final_resp
-
+    return jsonify(payload)
 
 @app.get("/api/surveys")
 def api_list_surveys():

@@ -2,7 +2,7 @@
 
 An advanced AI wellness companion powered by an agentic, multi-expert framework.
 
-## Getting Started
+## Developer Instructions
 
 ### Prerequisites
 - Python 3.9+

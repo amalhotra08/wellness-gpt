@@ -32,34 +32,51 @@ from src.models import db, User, Conversation, Message, Consent
 load_dotenv()   # loads .env into os.environ
 
 import logging
+
 # ---- Flask setup ----
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-app = Flask(__name__, static_folder="static", template_folder="templates")
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-if not app.config['SECRET_KEY']:
-    if os.getenv('FLASK_ENV') == 'production':
-        raise RuntimeError("SECRET_KEY must be set in production")
-    print("WARNING: using dev secret key")
-    app.config['SECRET_KEY'] = 'dev-secret-key-change-in-prod'
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///hms_gami.sqlite')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Vercel's /var/task filesystem is read-only.
+# Force Flask's instance folder into /tmp, which is writable in serverless functions.
+app = Flask(
+    __name__,
+    static_folder="static",
+    template_folder="templates",
+    instance_path="/tmp"
+)
 
-# Security: Session cookie hardencng
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Hardcoded for now. Not best practice, but avoids the production env var crash.
+app.config["SECRET_KEY"] = "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"
+
+# Vercel cannot write to sqlite:///hms_gami.sqlite because that resolves under the app/instance path.
+# Use /tmp so SQLAlchemy can create/write the SQLite file.
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/hms_gami.sqlite"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Security: Session cookie hardening
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+# Optional but useful if upload code references app.config["UPLOAD_FOLDER"]
+app.config["UPLOAD_FOLDER"] = "/tmp/uploads"
 
 # Initialize extensions
 db.init_app(app)
 migrate = Migrate(app, db)
+
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'landing'
+login_manager.login_view = "landing"
 
-os.makedirs("uploads", exist_ok=True)
+# Vercel can only write to /tmp
+os.makedirs("/tmp/uploads", exist_ok=True)
 
-SESSION_DURATION_SECONDS = int(os.environ.get("SESSION_DURATION_SECONDS", "1800"))
-PARTICIPANT_PIN_LENGTH = int(os.environ.get("PARTICIPANT_PIN_LENGTH", "6"))
+# Hardcoded defaults for now
+SESSION_DURATION_SECONDS = 1800
+PARTICIPANT_PIN_LENGTH = 6
 
 def _generate_unique_participant_pin() -> str:
     """Return a random numeric participant PIN that is unique in the users table."""

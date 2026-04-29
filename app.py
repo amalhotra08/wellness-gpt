@@ -904,57 +904,72 @@ def tts_edge():
 def generate_avatar_video():
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()
+
     if not text:
-        return jsonify({"error": "missing text"}), 400
-    # strip references section so audio/video are clean
+        return jsonify({
+            "ok": False,
+            "error": "missing text",
+            "audio": None,
+            "video": "/static/talking_head.mp4",
+            "fallback": True,
+        }), 200
+
     idx = text.find("\n\nReferences")
     if idx >= 0:
         text = text[:idx].strip()
 
-    ts = int(time.time() * 1000)  # millisecond resolution for uniqueness
+    ts = int(time.time() * 1000)
     audio_path = os.path.join("/tmp/uploads", f"av_{ts}.mp3")
     video_path = os.path.join("/tmp/uploads", f"av_{ts}.mp4")
     os.makedirs("/tmp/uploads", exist_ok=True)
+
+    audio_url = None
+    video_url = "/static/talking_head.mp4"
+    avatar_error = None
+
+    # Try full dynamic avatar first.
     try:
-        # This renders both audio and video; it will overwrite if exists
         asyncio.run(synth_and_render(text, audio_path, video_path))
+
+        if os.path.exists(audio_path):
+            audio_url = f"/tmp/uploads/{os.path.basename(audio_path)}"
+
+        if os.path.exists(video_path):
+            video_url = f"/tmp/uploads/{os.path.basename(video_path)}"
+
     except Exception as e:
+        avatar_error = repr(e)
         import traceback
         print("AVATAR RENDER ERROR:")
         traceback.print_exc()
 
+        # If full avatar fails, still try audio-only.
         try:
             import edge_tts
+
             async def gen():
                 communicate = edge_tts.Communicate(text, "en-US-GuyNeural")
                 await communicate.save(audio_path)
+
             asyncio.run(gen())
+
+            if os.path.exists(audio_path):
+                audio_url = f"/tmp/uploads/{os.path.basename(audio_path)}"
+
         except Exception as tts_e:
+            avatar_error = f"{avatar_error}; TTS fallback failed: {repr(tts_e)}"
             print("AVATAR FALLBACK TTS ERROR:", repr(tts_e))
             traceback.print_exc()
-            return jsonify({"error": f"avatar render failed: {repr(e)}; tts fallback failed: {repr(tts_e)}"}), 500
-        # Copy a static placeholder video to ensure a unique file exists
-        try:
-            import shutil
-            static_vid = os.path.join(app.static_folder, "talking_head.mp4")
-            if not os.path.exists(static_vid):
-                return jsonify({"error": "static talking_head.mp4 missing"}), 500
-            shutil.copyfile(static_vid, video_path)
-        except Exception as copy_e:
-            return jsonify({"error": f"avatar render failed: {e}; copy fallback failed: {copy_e}"}), 500
 
-    video_url = f"/tmp/uploads/{os.path.basename(video_path)}"
-
-    if not os.path.exists(video_path):
-        video_url = "/static/talking_head.mp4"
-    
-    audio_url = f"/tmp/uploads/{os.path.basename(audio_path)}"
-    
+    # IMPORTANT:
+    # Always return 200 JSON so frontend never gets stuck.
     return jsonify({
         "ok": True,
         "audio": audio_url,
         "video": video_url,
-    })
+        "fallback": video_url == "/static/talking_head.mp4",
+        "error": avatar_error,
+    }), 200
 
 # Serve files in uploads simply
 @app.get('/tmp/uploads/<path:fname>')

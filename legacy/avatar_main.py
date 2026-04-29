@@ -33,10 +33,10 @@ DEFAULT_BITRATE = os.getenv("AVATAR_BITRATE")  # optional, e.g., "800k"
 _VISEME_CACHE: Dict[Tuple[str, Tuple[str, ...]], Dict[str, mp.VideoFileClip]] = {}
 # Track original file paths to enable zero-reencode concat mode
 _VISEME_PATHS_CACHE: Dict[Tuple[str, Tuple[str, ...]], Dict[str, str]] = {}
-COPY_MODE = os.getenv("AVATAR_COPY_MODE", "0") != "0"
-HYBRID_ENABLED = os.getenv("AVATAR_HYBRID_CONCAT", "0") != "0"
-CONCAT_REENCODE = os.getenv("AVATAR_CONCAT_REENCODE", "0") != "0"
-NORMALIZE_ENABLED = os.getenv("AVATAR_NORMALIZE", "0") != "0"
+COPY_MODE = False
+HYBRID_ENABLED = False
+CONCAT_REENCODE = False
+NORMALIZE_ENABLED = False
 SCALE_FILTER = os.getenv("AVATAR_SCALE")  # e.g. "640:-2" to downscale for speed
 TARGET_FPS = int(os.getenv("AVATAR_TARGET_FPS", str(DEFAULT_FPS)))
 NORMALIZED_SUBDIR = os.getenv("AVATAR_NORMALIZED_DIR", "_normalized")
@@ -45,7 +45,7 @@ SYNC_MODE = os.getenv("AVATAR_SYNC", "0") == "1"  # timing-aware assembly; skips
 MIN_BASE_VIS_DUR = float(os.getenv("AVATAR_MIN_VIS_DUR", "0.5"))  # ensure normalized viseme clips aren't too tiny
 SILENCE_MIN_LEN = int(os.getenv("AVATAR_SILENCE_MIN_LEN", "10"))   # ms
 SILENCE_THRESH = int(os.getenv("AVATAR_SILENCE_THRESH", "-40"))     # dBFS threshold
-USE_IMAGE_CLIPS = os.getenv("AVATAR_USE_IMAGE_CLIPS", "1") != "0"
+USE_IMAGE_CLIPS = True
 SPEAKING_FRACTION = float(os.getenv("AVATAR_SPEAKING_FRACTION", "0.75"))  # portion of speech interval actually showing mouth movement
 IDLE_MIN_GAP = float(os.getenv("AVATAR_IDLE_MIN_GAP", "0.05"))  # minimum neutral gap inserted
 IDLE_MAX_GAP = float(os.getenv("AVATAR_IDLE_MAX_GAP", "0.35"))  # cap for any single idle gap

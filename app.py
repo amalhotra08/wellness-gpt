@@ -294,7 +294,7 @@ def register():
     user = User(
         username=username,
         password_hash=generate_password_hash(password),
-        participant_pin=_generate_unique_participant_pin(),
+        participant_pin=_generate_unique_participant_pin(username),
     )
     db.session.add(user)
     db.session.commit()

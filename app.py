@@ -3,6 +3,7 @@ import os
 import time
 import uuid
 import secrets
+import base64
 import hmac
 import hashlib
 from datetime import datetime, timedelta
@@ -933,10 +934,12 @@ def generate_avatar_video():
         asyncio.run(synth_and_render(text, audio_path, video_path))
 
         if os.path.exists(audio_path):
-            audio_url = f"/tmp/uploads/{os.path.basename(audio_path)}"
-
+            with open(audio_path, "rb") as f:
+                audio_url = "data:audio/mpeg;base64," + base64.b64encode(f.read()).decode("utf-8")
+        
         if os.path.exists(video_path):
-            video_url = f"/tmp/uploads/{os.path.basename(video_path)}"
+            with open(video_path, "rb") as f:
+                video_url = "data:video/mp4;base64," + base64.b64encode(f.read()).decode("utf-8")
 
     except Exception as e:
         avatar_error = repr(e)
@@ -955,7 +958,8 @@ def generate_avatar_video():
             asyncio.run(gen())
 
             if os.path.exists(audio_path):
-                audio_url = f"/tmp/uploads/{os.path.basename(audio_path)}"
+                with open(audio_path, "rb") as f:
+                    audio_url = "data:audio/mpeg;base64," + base64.b64encode(f.read()).decode("utf-8")
 
         except Exception as tts_e:
             avatar_error = f"{avatar_error}; TTS fallback failed: {repr(tts_e)}"

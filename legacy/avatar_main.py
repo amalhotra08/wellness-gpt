@@ -1063,7 +1063,7 @@ async def create_talking_head(text, audio_output_path, final_output_path, base_c
     if DEFAULT_BITRATE:
         ffmpeg_params.extend(["-b:v", DEFAULT_BITRATE])
     t0 = time.time()
-    temp_audiofile = f"/tmp/{Path(final_output_path).stem}_TEMP_MPY_wvf_snd.m4a"
+    temp_audiofile = f"/tmp/{Path(final_output_path).stem}_TEMP_MPY_wvf_snd.mp4"
 
     final_video.write_videofile(
         final_output_path,

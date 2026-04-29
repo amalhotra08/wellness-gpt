@@ -3,6 +3,8 @@ import os
 import time
 import uuid
 import secrets
+import hmac
+import hashlib
 from datetime import datetime, timedelta
 from flask import (
     Flask,
@@ -81,23 +83,61 @@ os.makedirs("/tmp/", exist_ok=True)
 SESSION_DURATION_SECONDS = 1800
 PARTICIPANT_PIN_LENGTH = 6
 
-def _generate_unique_participant_pin() -> str:
-    """Return a random numeric participant PIN that is unique in the users table."""
+def _generate_unique_participant_pin(username: str) -> str:
+    """
+    Return a deterministic numeric participant PIN based on username.
+
+    Same username + same SECRET_KEY = same PIN.
+    Example: username "rmandal" will always get the same PIN,
+    as long as SECRET_KEY does not change.
+    """
     digits = max(4, PARTICIPANT_PIN_LENGTH)
     upper_bound = 10 ** digits
-    for _ in range(50):
-        candidate = f"{secrets.randbelow(upper_bound):0{digits}d}"
-        if not User.query.filter_by(participant_pin=candidate).first():
+
+    normalized_username = username.strip().lower()
+
+    secret = app.config["SECRET_KEY"].encode("utf-8")
+
+    # Try deterministic candidates. The counter handles rare PIN collisions
+    # with other usernames while remaining deterministic.
+    for counter in range(50):
+        message = f"{normalized_username}:{counter}".encode("utf-8")
+        digest = hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+        candidate_number = int(digest[:12], 16) % upper_bound
+        candidate = f"{candidate_number:0{digits}d}"
+
+        existing_user = User.query.filter_by(participant_pin=candidate).first()
+
+        if not existing_user:
             return candidate
-    # Extremely unlikely fallback: include a short UUID-derived suffix if the PIN space is saturated.
-    return f"{secrets.randbelow(upper_bound):0{digits}d}-{uuid.uuid4().hex[:4]}"
+
+        # If this PIN already belongs to the same username, reuse it.
+        if getattr(existing_user, "username", "").strip().lower() == normalized_username:
+            return candidate
+
+    # Deterministic fallback if the PIN space is unusually crowded.
+    digest = hmac.new(
+        secret,
+        f"{normalized_username}:fallback".encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+
+    candidate_number = int(digest[:16], 16) % upper_bound
+    return f"{candidate_number:0{digits}d}"
 
 def _ensure_user_pin(user: User) -> str:
-    """Backfill a participant PIN for older accounts and return it."""
+    """Backfill a deterministic participant PIN for older accounts and return it."""
     if not getattr(user, "participant_pin", None):
-        user.participant_pin = _generate_unique_participant_pin()
+        username = getattr(user, "username", None)
+
+        if not username:
+            raise ValueError("Cannot generate participant PIN: user has no username")
+
+        user.participant_pin = _generate_unique_participant_pin(username)
         db.session.add(user)
         db.session.commit()
+
     return user.participant_pin
 
 def _ensure_runtime_schema() -> None:

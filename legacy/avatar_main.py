@@ -45,7 +45,7 @@ SYNC_MODE = os.getenv("AVATAR_SYNC", "0") == "1"  # timing-aware assembly; skips
 MIN_BASE_VIS_DUR = float(os.getenv("AVATAR_MIN_VIS_DUR", "0.5"))  # ensure normalized viseme clips aren't too tiny
 SILENCE_MIN_LEN = int(os.getenv("AVATAR_SILENCE_MIN_LEN", "10"))   # ms
 SILENCE_THRESH = int(os.getenv("AVATAR_SILENCE_THRESH", "-40"))     # dBFS threshold
-USE_IMAGE_CLIPS = os.getenv("AVATAR_USE_IMAGE_CLIPS", "0") == "1"  # force freezing viseme videos into single-frame ImageClips
+USE_IMAGE_CLIPS = os.getenv("AVATAR_USE_IMAGE_CLIPS", "1") != "0"
 SPEAKING_FRACTION = float(os.getenv("AVATAR_SPEAKING_FRACTION", "0.75"))  # portion of speech interval actually showing mouth movement
 IDLE_MIN_GAP = float(os.getenv("AVATAR_IDLE_MIN_GAP", "0.05"))  # minimum neutral gap inserted
 IDLE_MAX_GAP = float(os.getenv("AVATAR_IDLE_MAX_GAP", "0.35"))  # cap for any single idle gap

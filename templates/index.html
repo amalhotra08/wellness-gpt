@@ -1075,9 +1075,14 @@
     async function playAvatarReply(audioUrl, videoUrl) {
       if (!audioEl || !audioUrl) return false;
     
-      const aurl = audioUrl + (audioUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-      const vurl = (videoUrl || '/static/talking_head.mp4') +
-        ((videoUrl || '').includes('?') ? '&' : '?') + 't=' + Date.now();
+      const addCacheBust = (url) => {
+        if (!url) return url;
+        if (url.startsWith('data:')) return url;
+        return url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      };
+    
+      const aurl = addCacheBust(audioUrl);
+      const vurl = addCacheBust(videoUrl || '/static/talking_head.mp4');
     
       try { audioEl.pause(); } catch {}
       try { audioEl.currentTime = 0; } catch {}

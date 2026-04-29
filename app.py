@@ -943,10 +943,17 @@ def generate_avatar_video():
         except Exception as copy_e:
             return jsonify({"error": f"avatar render failed: {e}; copy fallback failed: {copy_e}"}), 500
 
+    video_url = f"/tmp/uploads/{os.path.basename(video_path)}"
+
+    if not os.path.exists(video_path):
+        video_url = "/static/talking_head.mp4"
+    
+    audio_url = f"/tmp/uploads/{os.path.basename(audio_path)}"
+    
     return jsonify({
         "ok": True,
-        "audio": f"/tmp/uploads/{os.path.basename(audio_path)}",
-        "video": f"/tmp/uploads/{os.path.basename(video_path)}",
+        "audio": audio_url,
+        "video": video_url,
     })
 
 # Serve files in uploads simply
